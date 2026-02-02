@@ -57,3 +57,4 @@ class User(Base):
     news = relationship("News", back_populates="user")
     devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
     drums = relationship("Drum", back_populates="user", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")

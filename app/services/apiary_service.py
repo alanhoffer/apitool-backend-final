@@ -15,6 +15,7 @@ from pathlib import Path
 import magic
 from PIL import Image
 import io
+from types import SimpleNamespace
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -54,7 +55,8 @@ class ApiaryService:
                     tFence=apiary.settings.tFence,
                     tComment=apiary.settings.tComment,
                     transhumance=apiary.settings.transhumance,
-                    harvesting=apiary.settings.harvesting
+                    harvesting=apiary.settings.harvesting,
+                    tasks=apiary.settings.tasks
                 )
             
             apiary_dto = ApiaryResponse(
@@ -93,8 +95,24 @@ class ApiaryService:
         Valida, redimensiona y guarda una imagen optimizada.
         Retorna el nombre del archivo guardado.
         """
-        # 1. Leer contenido
+        # 1. Validar tamaño máximo (10MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+        
+        # Leer contenido completo
         content = await file.read()
+        file_size = len(content)
+        
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024*1024):.0f}MB"
+            )
+        
+        if file_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File is empty"
+            )
         
         # 2. Validar tipo real (Magic numbers)
         # magic.from_buffer lee los bytes iniciales para detectar el tipo real
@@ -159,12 +177,18 @@ class ApiaryService:
             tFlumetrine=apiary_data.tFlumetrine,
             tFence=apiary_data.tFence,
             tComment=apiary_data.tComment,
-            transhumance=apiary_data.transhumance
+            transhumance=apiary_data.transhumance,
+            latitude=apiary_data.latitude,
+            longitude=apiary_data.longitude
         )
         
         self.db.add(new_apiary)
-        self.db.commit()
-        self.db.refresh(new_apiary)
+        try:
+            self.db.commit()
+            self.db.refresh(new_apiary)
+        except Exception:
+            self.db.rollback()
+            raise
         
         settings = Settings(
             apiaryId=new_apiary.id,
@@ -172,7 +196,35 @@ class ApiaryService:
             **settings_data
         )
         self.db.add(settings)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+            
+        # Log initial creation in history
+        # Create a "dummy" old apiary with empty values to trigger history log for all fields
+        old_apiary = SimpleNamespace(
+            id=new_apiary.id,
+            userId=new_apiary.userId,
+            name=None,
+            hives=None,
+            status=None,
+            image=None,
+            honey=None,
+            levudex=None,
+            sugar=None,
+            box=None,
+            boxMedium=None,
+            boxSmall=None,
+            tOxalic=None,
+            tAmitraz=None,
+            tFlumetrine=None,
+            tFence=None,
+            tComment=None,
+            transhumance=None
+        )
+        self.history_service.log_changes(old_apiary, new_apiary)
         
         return new_apiary
     
@@ -182,7 +234,11 @@ class ApiaryService:
             return False
         
         self.db.delete(apiary)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         return True
     
     async def update_apiary(self, apiary_id: int, apiary_data: UpdateApiary, file: Optional[UploadFile] = None) -> Optional[Apiary]:
@@ -217,11 +273,14 @@ class ApiaryService:
         for key, value in update_data.items():
             setattr(apiary, key, value)
         
-        self.db.commit()
-        self.db.refresh(apiary)
+        try:
+            self.db.commit()
+            self.db.refresh(apiary)
+        except Exception:
+            self.db.rollback()
+            raise
         
         # Create a temporary old_apiary object for history logging
-        from types import SimpleNamespace
         old_apiary = SimpleNamespace(**old_values, id=apiary.id, userId=apiary.userId)
         
         self.history_service.log_changes(old_apiary, apiary)

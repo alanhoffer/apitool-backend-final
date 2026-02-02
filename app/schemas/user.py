@@ -31,3 +31,11 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=3)
+    email: Optional[EmailStr] = None
+
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str = Field(..., min_length=7)
+    newPassword: str = Field(..., min_length=7)
+

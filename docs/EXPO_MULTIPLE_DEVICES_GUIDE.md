@@ -741,3 +741,4 @@ await Notifications.setBadgeCountAsync(unreadCount.data.count);
 
 
 
+

@@ -10,6 +10,7 @@ from app.schemas.apiary import CreateApiary, UpdateApiary, ApiaryResponse, Apiar
 from app.schemas.settings import UpdateSettings
 from app.schemas.history import HistoryResponse
 from app.models.apiary import Apiary
+from app.utils.helpers import verify_apiary_ownership, build_apiary_detail, safe_int_convert, safe_float_convert
 from typing import List
 import uuid
 import os
@@ -28,42 +29,11 @@ async def get_apiary(
 ):
     apiary_service = ApiaryService(db)
     apiary = apiary_service.get_apiary(id)
-    
-    if not apiary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Apiary not exists"
-        )
-    
     user_id = int(payload.get("sub"))
-    if apiary.userId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This apiary is not yours"
-        )
     
-    return ApiaryDetail(
-        id=apiary.id,
-        name=apiary.name,
-        userId=apiary.userId,
-        image=apiary.image,
-        hives=apiary.hives,
-        status=apiary.status,
-        honey=apiary.honey,
-        levudex=apiary.levudex,
-        sugar=apiary.sugar,
-        box=apiary.box,
-        boxMedium=apiary.boxMedium,
-        boxSmall=apiary.boxSmall,
-        tOxalic=apiary.tOxalic,
-        tAmitraz=apiary.tAmitraz,
-        tFlumetrine=apiary.tFlumetrine,
-        tFence=apiary.tFence,
-        tComment=apiary.tComment,
-        transhumance=apiary.transhumance,
-        createdAt=apiary.createdAt,
-        updatedAt=apiary.updatedAt
-    )
+    verify_apiary_ownership(apiary, user_id)
+    
+    return build_apiary_detail(apiary)
 
 @router.get("/{id}/harvested", response_model=BoxStats)
 async def get_apiary_harvested_totals(
@@ -74,19 +44,9 @@ async def get_apiary_harvested_totals(
     """Obtiene alzas cosechadas acumuladas por apiario."""
     apiary_service = ApiaryService(db)
     apiary = apiary_service.get_apiary(id)
-
-    if not apiary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Apiary not exists"
-        )
-
     user_id = int(payload.get("sub"))
-    if apiary.userId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This apiary is not yours"
-        )
+    
+    verify_apiary_ownership(apiary, user_id)
 
     return apiary_service.get_harvested_totals_by_apiary(id)
 
@@ -215,21 +175,23 @@ async def create_apiary(
         )
     
     apiary_data = CreateApiary(
-        name=form.get("name"),
-        hives=int(form.get("hives", 0)),
+        name=form.get("name") or "",
+        hives=safe_int_convert(form.get("hives"), 0) or 0,
         status=form.get("status", "normal"),
-        honey=float(form.get("honey", 0)) if form.get("honey") else None,
-        levudex=float(form.get("levudex", 0)) if form.get("levudex") else None,
-        sugar=float(form.get("sugar", 0)) if form.get("sugar") else None,
-        box=int(form.get("box", 0)) if form.get("box") else None,
-        boxMedium=int(form.get("boxMedium", 0)) if form.get("boxMedium") else None,
-        boxSmall=int(form.get("boxSmall", 0)) if form.get("boxSmall") else None,
-        tOxalic=int(form.get("tOxalic", 0)) if form.get("tOxalic") else None,
-        tAmitraz=int(form.get("tAmitraz", 0)) if form.get("tAmitraz") else None,
-        tFlumetrine=int(form.get("tFlumetrine", 0)) if form.get("tFlumetrine") else None,
-        tFence=int(form.get("tFence", 0)) if form.get("tFence") else None,
+        honey=safe_float_convert(form.get("honey")),
+        levudex=safe_float_convert(form.get("levudex")),
+        sugar=safe_float_convert(form.get("sugar")),
+        box=safe_int_convert(form.get("box")),
+        boxMedium=safe_int_convert(form.get("boxMedium")),
+        boxSmall=safe_int_convert(form.get("boxSmall")),
+        tOxalic=safe_int_convert(form.get("tOxalic")),
+        tAmitraz=safe_int_convert(form.get("tAmitraz")),
+        tFlumetrine=safe_int_convert(form.get("tFlumetrine")),
+        tFence=safe_int_convert(form.get("tFence")),
         tComment=form.get("tComment"),
-        transhumance=int(form.get("transhumance", 0)) if form.get("transhumance") else None,
+        transhumance=safe_int_convert(form.get("transhumance")),
+        latitude=safe_float_convert(form.get("latitude")),
+        longitude=safe_float_convert(form.get("longitude")),
         settings=form.get("settings", "{}")
     )
     
@@ -242,28 +204,7 @@ async def create_apiary(
             detail="User not found"
         )
     
-    return ApiaryDetail(
-        id=apiary_created.id,
-        name=apiary_created.name,
-        userId=apiary_created.userId,
-        image=apiary_created.image,
-        hives=apiary_created.hives,
-        status=apiary_created.status,
-        honey=apiary_created.honey,
-        levudex=apiary_created.levudex,
-        sugar=apiary_created.sugar,
-        box=apiary_created.box,
-        boxMedium=apiary_created.boxMedium,
-        boxSmall=apiary_created.boxSmall,
-        tOxalic=apiary_created.tOxalic,
-        tAmitraz=apiary_created.tAmitraz,
-        tFlumetrine=apiary_created.tFlumetrine,
-        tFence=apiary_created.tFence,
-        tComment=apiary_created.tComment,
-        transhumance=apiary_created.transhumance,
-        createdAt=apiary_created.createdAt,
-        updatedAt=apiary_created.updatedAt
-    )
+    return build_apiary_detail(apiary_created)
 
 @router.delete("/{id}")
 async def delete_apiary(
@@ -273,19 +214,9 @@ async def delete_apiary(
 ):
     apiary_service = ApiaryService(db)
     apiary = apiary_service.get_apiary(id)
-    
-    if not apiary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Apiary not exists"
-        )
-    
     user_id = int(payload.get("sub"))
-    if apiary.userId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This apiary is not yours"
-        )
+    
+    verify_apiary_ownership(apiary, user_id)
     
     apiary_service.delete_apiary(id)
     return {"message": "Apiary deleted successfully"}
@@ -300,36 +231,28 @@ async def update_apiary(
 ):
     apiary_service = ApiaryService(db)
     apiary = apiary_service.get_apiary(id)
-    
-    if not apiary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Apiary not exists"
-        )
-    
     user_id = int(payload.get("sub"))
-    if apiary.userId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This apiary is not yours"
-        )
+    
+    verify_apiary_ownership(apiary, user_id)
     
     form = await request.form()
     update_data = UpdateApiary(
-        hives=int(form.get("hives")) if form.get("hives") else None,
+        hives=safe_int_convert(form.get("hives")),
         status=form.get("status"),
-        honey=float(form.get("honey")) if form.get("honey") else None,
-        levudex=float(form.get("levudex")) if form.get("levudex") else None,
-        sugar=float(form.get("sugar")) if form.get("sugar") else None,
-        box=int(form.get("box")) if form.get("box") else None,
-        boxMedium=int(form.get("boxMedium")) if form.get("boxMedium") else None,
-        boxSmall=int(form.get("boxSmall")) if form.get("boxSmall") else None,
-        tOxalic=int(form.get("tOxalic")) if form.get("tOxalic") else None,
-        tAmitraz=int(form.get("tAmitraz")) if form.get("tAmitraz") else None,
-        tFlumetrine=int(form.get("tFlumetrine")) if form.get("tFlumetrine") else None,
-        tFence=int(form.get("tFence")) if form.get("tFence") else None,
+        honey=safe_float_convert(form.get("honey")),
+        levudex=safe_float_convert(form.get("levudex")),
+        sugar=safe_float_convert(form.get("sugar")),
+        box=safe_int_convert(form.get("box")),
+        boxMedium=safe_int_convert(form.get("boxMedium")),
+        boxSmall=safe_int_convert(form.get("boxSmall")),
+        tOxalic=safe_int_convert(form.get("tOxalic")),
+        tAmitraz=safe_int_convert(form.get("tAmitraz")),
+        tFlumetrine=safe_int_convert(form.get("tFlumetrine")),
+        tFence=safe_int_convert(form.get("tFence")),
         tComment=form.get("tComment"),
-        transhumance=int(form.get("transhumance")) if form.get("transhumance") else None
+        transhumance=safe_int_convert(form.get("transhumance")),
+        latitude=safe_float_convert(form.get("latitude")),
+        longitude=safe_float_convert(form.get("longitude"))
     )
     
     updated_apiary = await apiary_service.update_apiary(id, update_data, file)
@@ -339,28 +262,7 @@ async def update_apiary(
             detail="Apiary not found"
         )
     
-    return ApiaryDetail(
-        id=updated_apiary.id,
-        name=updated_apiary.name,
-        userId=updated_apiary.userId,
-        image=updated_apiary.image,
-        hives=updated_apiary.hives,
-        status=updated_apiary.status,
-        honey=updated_apiary.honey,
-        levudex=updated_apiary.levudex,
-        sugar=updated_apiary.sugar,
-        box=updated_apiary.box,
-        boxMedium=updated_apiary.boxMedium,
-        boxSmall=updated_apiary.boxSmall,
-        tOxalic=updated_apiary.tOxalic,
-        tAmitraz=updated_apiary.tAmitraz,
-        tFlumetrine=updated_apiary.tFlumetrine,
-        tFence=updated_apiary.tFence,
-        tComment=updated_apiary.tComment,
-        transhumance=updated_apiary.transhumance,
-        createdAt=updated_apiary.createdAt,
-        updatedAt=updated_apiary.updatedAt
-    )
+    return build_apiary_detail(updated_apiary)
 
 @router.get("/profile/image/{id}")
 async def get_file(id: str):
@@ -370,23 +272,33 @@ async def get_file(id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="File not found"
         )
-    return FileResponse(file_path, media_type="image/jpeg")
+    
+    # Detectar el tipo MIME según la extensión
+    if id.endswith('.png'):
+        media_type = "image/png"
+    elif id.endswith('.jpg') or id.endswith('.jpeg'):
+        media_type = "image/jpeg"
+    elif id.endswith('.gif'):
+        media_type = "image/gif"
+    elif id.endswith('.webp'):
+        media_type = "image/webp"
+    else:
+        media_type = "image/jpeg"  # Por defecto
+    
+    return FileResponse(file_path, media_type=media_type)
 
 @router.get("", response_model=List[ApiaryResponse])
 async def get_apiarys(
     payload: dict = Depends(get_current_user_payload),
     db: Session = Depends(get_db)
 ):
+    """Obtiene todos los apiarios del usuario autenticado."""
     apiary_service = ApiaryService(db)
     user_id = int(payload.get("sub"))
     apiary_array = apiary_service.get_all_by_user_id(user_id)
     
-    if not apiary_array:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
+    # Retornar lista vacía en lugar de error si no hay apiarios
+    # Esto es más consistente con el comportamiento esperado
     return apiary_array
 
 @router.get("/history/{id}", response_model=List[HistoryResponse])
@@ -397,19 +309,9 @@ async def get_apiary_history(
 ):
     apiary_service = ApiaryService(db)
     apiary = apiary_service.get_apiary(id)
-    
-    if not apiary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="This apiary not exists"
-        )
-    
     user_id = int(payload.get("sub"))
-    if apiary.userId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This apiary is not yours"
-        )
+    
+    verify_apiary_ownership(apiary, user_id)
     
     history = apiary_service.get_all_history(id)
     

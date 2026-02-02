@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.services.user_service import UserService
-from app.schemas.user import UserResponse, PushTokenUpdate
+from app.services.auth_service import AuthService
+from app.schemas.user import UserResponse, PushTokenUpdate, UpdateProfileRequest, ChangePasswordRequest
+from app.schemas.device import CreateDevice, UpdateDevice, DeviceResponse
 from app.models.user import User
 from app.models.device import Device
 from typing import List
@@ -56,7 +58,36 @@ async def get_user(
     
     return found_user
 
-@router.get("/devices")
+@router.post("/devices", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED)
+async def register_device(
+    device_data: CreateDevice,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Registra o actualiza un dispositivo del usuario.
+    Si el dispositivo ya existe (deviceName + platform), se actualiza.
+    Si no existe, se crea uno nuevo.
+    """
+    user_service = UserService(db)
+    device = user_service.register_or_update_device(current_user.id, device_data)
+    return device
+
+@router.put("/devices", response_model=DeviceResponse, status_code=status.HTTP_200_OK)
+async def update_device(
+    device_data: CreateDevice,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza un dispositivo del usuario basado en deviceName + platform.
+    Si no existe, lo crea.
+    """
+    user_service = UserService(db)
+    device = user_service.register_or_update_device(current_user.id, device_data)
+    return device
+
+@router.get("/devices", status_code=status.HTTP_200_OK)
 async def get_user_devices(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -65,20 +96,12 @@ async def get_user_devices(
     user_service = UserService(db)
     devices = user_service.get_user_devices(current_user.id)
     
-    return {
-        "devices": [
-            {
-                "id": device.id,
-                "deviceName": device.deviceName,
-                "platform": device.platform,
-                "lastActive": device.lastActive,
-                "createdAt": device.createdAt
-            }
-            for device in devices
-        ]
-    }
+    # Convertir dispositivos usando el helper
+    device_list = [DeviceResponse.from_device(device).model_dump() for device in devices]
+    
+    return {"devices": device_list}
 
-@router.delete("/devices/{device_id}")
+@router.delete("/devices/{device_id}", status_code=status.HTTP_200_OK)
 async def remove_device(
     device_id: int,
     current_user: User = Depends(get_current_user),
@@ -94,5 +117,48 @@ async def remove_device(
             detail="Device not found or does not belong to user"
         )
     
-    return {"message": "Device removed successfully"}
+    return {"message": "Dispositivo eliminado exitosamente"}
+
+@router.put("/profile", response_model=UserResponse, status_code=status.HTTP_200_OK)
+async def update_profile(
+    profile_data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza la información del perfil del usuario (nombre y/o email).
+    """
+    user_service = UserService(db)
+    updated_user = user_service.update_profile(current_user.id, profile_data)
+    
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return updated_user
+
+@router.put("/password", status_code=status.HTTP_200_OK)
+async def change_password(
+    password_data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Cambia la contraseña del usuario autenticado.
+    Requiere la contraseña actual.
+    """
+    user_service = UserService(db)
+    auth_service = AuthService(db)
+    
+    success = user_service.change_password(current_user.id, password_data, auth_service)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return {"message": "Contraseña actualizada exitosamente"}
 

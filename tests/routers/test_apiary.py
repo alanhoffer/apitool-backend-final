@@ -33,9 +33,12 @@ def test_get_all_apiaries(client, auth_headers, test_apiary):
 
 def test_create_apiary(client, auth_headers, test_user):
     """Test creating a new apiary."""
-    # Create a dummy file
-    file_content = b"fake image content"
-    file = io.BytesIO(file_content)
+    # Create a real JPEG image for testing
+    from PIL import Image
+    img = Image.new('RGB', (100, 100), color='red')
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='JPEG')
+    img_bytes.seek(0)
     
     response = client.post(
         "/apiarys",
@@ -46,7 +49,7 @@ def test_create_apiary(client, auth_headers, test_user):
             "status": "normal",
             "settings": '{"honey": true}'
         },
-        files={"file": ("test.jpg", file, "image/jpeg")}
+        files={"file": ("test.jpg", img_bytes, "image/jpeg")}
     )
     
     assert response.status_code == 200

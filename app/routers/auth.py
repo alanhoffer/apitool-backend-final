@@ -5,7 +5,7 @@ from app.dependencies import get_current_user_payload
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from app.schemas.user import CreateUser, LoginUser
-from app.schemas.auth import AuthData
+from app.schemas.auth import AuthData, ForgotPasswordRequest, ResetPasswordRequest
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,4 +28,27 @@ async def sign_out(payload: dict = Depends(get_current_user_payload)):
 @router.get("/profile")
 async def profile(payload: dict = Depends(get_current_user_payload)):
     return payload
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Envía un email con un enlace para restablecer la contraseña.
+    Por seguridad, siempre retorna éxito incluso si el email no existe.
+    """
+    auth_service = AuthService(db)
+    return await auth_service.forgot_password(request)
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Restablece la contraseña usando un token recibido por email.
+    """
+    auth_service = AuthService(db)
+    return await auth_service.reset_password(request)
 

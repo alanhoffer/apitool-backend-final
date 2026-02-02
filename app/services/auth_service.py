@@ -1,12 +1,15 @@
-from jose import jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.services.user_service import UserService
 from app.schemas.user import CreateUser, LoginUser
-from app.schemas.auth import AuthData
+from app.schemas.auth import AuthData, ForgotPasswordRequest, ResetPasswordRequest
 from app.constants import JWT_SECRET, JWT_ALGORITHM, BCRYPT_SALT_ROUNDS
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -90,4 +93,85 @@ class AuthService:
             user_id=user.id,
             access_token=self.create_access_token(payload)
         )
-
+    
+    def create_reset_token(self, email: str) -> str:
+        """
+        Crea un token JWT para reset de contraseña con expiración de 1 hora.
+        """
+        payload = {
+            "email": email,
+            "type": "password_reset",
+            "exp": datetime.utcnow() + timedelta(hours=1)
+        }
+        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    async def forgot_password(self, request: ForgotPasswordRequest) -> dict:
+        """
+        Genera un token de reset de contraseña y lo envía por email.
+        En producción, aquí se debería enviar un email real.
+        """
+        user = self.user_service.get_user_by_email(request.email)
+        if not user:
+            # Por seguridad, no revelamos si el email existe o no
+            logger.warning(f"Password reset requested for non-existent email: {request.email}")
+            return {"message": "Se ha enviado un enlace de recuperación a tu email"}
+        
+        reset_token = self.create_reset_token(request.email)
+        
+        # TODO: Enviar email con el token
+        # En producción, aquí se enviaría un email con un enlace como:
+        # https://yourapp.com/reset-password?token={reset_token}
+        logger.info(f"Password reset token generated for user: {user.email}")
+        # Por ahora solo logueamos el token (en producción NO hacer esto)
+        logger.debug(f"Reset token: {reset_token}")
+        
+        return {"message": "Se ha enviado un enlace de recuperación a tu email"}
+    
+    async def reset_password(self, request: ResetPasswordRequest) -> dict:
+        """
+        Restablece la contraseña usando un token válido.
+        """
+        try:
+            # Decodificar y validar el token
+            payload = jwt.decode(request.token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            
+            # Verificar que es un token de reset de contraseña
+            if payload.get("type") != "password_reset":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid token type"
+                )
+            
+            email = payload.get("email")
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid token"
+                )
+            
+            # Buscar usuario
+            user = self.user_service.get_user_by_email(email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+            
+            # Actualizar contraseña
+            hashed_password = self.hash_password(request.newPassword)
+            user.password = hashed_password
+            
+            try:
+                self.db.commit()
+                self.db.refresh(user)
+                logger.info(f"Password reset successful for user: {user.email}")
+                return {"message": "Contraseña restablecida exitosamente"}
+            except Exception:
+                self.db.rollback()
+                raise
+            
+        except JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token"
+            )

@@ -32,6 +32,7 @@ class UpdateSettings(BaseModel):
     tComment: Optional[bool] = None
     transhumance: Optional[bool] = None
     harvesting: Optional[bool] = None
+    tasks: Optional[str] = None
 
 class SettingsResponse(BaseModel):
     id: int
@@ -50,6 +51,7 @@ class SettingsResponse(BaseModel):
     tComment: bool
     transhumance: bool
     harvesting: bool
+    tasks: Optional[str] = None
     
     class Config:
         from_attributes = True

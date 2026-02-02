@@ -24,9 +24,12 @@ class Apiary(Base):
     tFence = Column(Integer, default=0)
     tComment = Column(String, default="")
     transhumance = Column(Integer, nullable=True, default=0)
+    latitude = Column(Numeric(10, 8), nullable=True)
+    longitude = Column(Numeric(11, 8), nullable=True)
     createdAt = Column(DateTime, server_default=func.current_timestamp())
     updatedAt = Column(DateTime, server_default=func.current_timestamp(), onupdate=func.current_timestamp())
     
     user = relationship("User", back_populates="apiarys")
     settings = relationship("Settings", back_populates="apiary", uselist=False, cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="apiary")
 

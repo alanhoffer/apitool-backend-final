@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -21,6 +21,7 @@ class Settings(Base):
     tComment = Column(Boolean, default=True)
     transhumance = Column(Boolean, default=True)
     harvesting = Column(Boolean, default=False)
+    tasks = Column(Text, nullable=True)
     
     apiary = relationship("Apiary", back_populates="settings")
 

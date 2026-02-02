@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.recommendations import SeasonalTip
 from app.schemas.recommendations import SeasonalTipCreate
+from app.utils.cache import cached
 from typing import List
 from datetime import datetime
 
@@ -20,6 +21,7 @@ class RecommendationsService:
             if month in [9, 10, 11]: return "Otoño"
             return "Invierno"
 
+    @cached(ttl=3600, key_prefix="recommendations")  # Cache por 1 hora
     def get_recommendations(self, hemisphere: str = "South") -> dict:
         current_month = datetime.now().month
         season_name = self.get_current_season(current_month, hemisphere)

@@ -17,40 +17,44 @@ except ImportError:
         SettingsResponse = None  # Se resolverá más tarde con model_rebuild()
 
 class CreateApiary(BaseModel):
-    name: str
-    hives: int
-    status: str
+    name: str = Field(..., min_length=1, max_length=255, description="Apiary name")
+    hives: int = Field(..., ge=0, description="Number of hives (must be >= 0)")
+    status: str = Field(default="normal", description="Apiary status")
     image: Optional[str] = None
-    honey: Optional[Decimal] = None
-    levudex: Optional[Decimal] = None
-    sugar: Optional[Decimal] = None
-    box: Optional[int] = None
-    boxMedium: Optional[int] = None
-    boxSmall: Optional[int] = None
-    tOxalic: Optional[int] = None
-    tAmitraz: Optional[int] = None
-    tFlumetrine: Optional[int] = None
-    tFence: Optional[int] = None
-    tComment: Optional[str] = None
-    transhumance: Optional[int] = None
-    settings: str  # JSON string
+    honey: Optional[Decimal] = Field(None, ge=0, description="Honey amount (must be >= 0)")
+    levudex: Optional[Decimal] = Field(None, ge=0, description="Levudex amount (must be >= 0)")
+    sugar: Optional[Decimal] = Field(None, ge=0, description="Sugar amount (must be >= 0)")
+    box: Optional[int] = Field(None, ge=0, description="Box count (must be >= 0)")
+    boxMedium: Optional[int] = Field(None, ge=0, description="Medium box count (must be >= 0)")
+    boxSmall: Optional[int] = Field(None, ge=0, description="Small box count (must be >= 0)")
+    tOxalic: Optional[int] = Field(None, ge=0, description="Oxalic treatment days (must be >= 0)")
+    tAmitraz: Optional[int] = Field(None, ge=0, description="Amitraz treatment days (must be >= 0)")
+    tFlumetrine: Optional[int] = Field(None, ge=0, description="Flumetrine treatment days (must be >= 0)")
+    tFence: Optional[int] = Field(None, ge=0, description="Fence treatment days (must be >= 0)")
+    tComment: Optional[str] = Field(None, max_length=1000, description="Treatment comment")
+    transhumance: Optional[int] = Field(None, ge=0, description="Transhumance days (must be >= 0)")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude coordinate")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude coordinate")
+    settings: str = Field(default="{}", description="Settings as JSON string")
 
 class UpdateApiary(BaseModel):
     image: Optional[str] = None
-    hives: Optional[int] = None
+    hives: Optional[int] = Field(None, ge=0, description="Number of hives (must be >= 0)")
     status: Optional[str] = None
-    honey: Optional[Decimal] = None
-    levudex: Optional[Decimal] = None
-    sugar: Optional[Decimal] = None
-    box: Optional[int] = None
-    boxMedium: Optional[int] = None
-    boxSmall: Optional[int] = None
-    tOxalic: Optional[int] = None
-    tAmitraz: Optional[int] = None
-    tFlumetrine: Optional[int] = None
-    tFence: Optional[int] = None
-    tComment: Optional[str] = None
-    transhumance: Optional[int] = None
+    honey: Optional[Decimal] = Field(None, ge=0, description="Honey amount (must be >= 0)")
+    levudex: Optional[Decimal] = Field(None, ge=0, description="Levudex amount (must be >= 0)")
+    sugar: Optional[Decimal] = Field(None, ge=0, description="Sugar amount (must be >= 0)")
+    box: Optional[int] = Field(None, ge=0, description="Box count (must be >= 0)")
+    boxMedium: Optional[int] = Field(None, ge=0, description="Medium box count (must be >= 0)")
+    boxSmall: Optional[int] = Field(None, ge=0, description="Small box count (must be >= 0)")
+    tOxalic: Optional[int] = Field(None, ge=0, description="Oxalic treatment days (must be >= 0)")
+    tAmitraz: Optional[int] = Field(None, ge=0, description="Amitraz treatment days (must be >= 0)")
+    tFlumetrine: Optional[int] = Field(None, ge=0, description="Flumetrine treatment days (must be >= 0)")
+    tFence: Optional[int] = Field(None, ge=0, description="Fence treatment days (must be >= 0)")
+    tComment: Optional[str] = Field(None, max_length=1000, description="Treatment comment")
+    transhumance: Optional[int] = Field(None, ge=0, description="Transhumance days (must be >= 0)")
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude coordinate")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude coordinate")
 
 class ApiaryResponse(BaseModel):
     model_config = ConfigDict(
@@ -98,6 +102,8 @@ class ApiaryDetail(BaseModel):
     tFence: int
     tComment: str
     transhumance: Optional[int] = None
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
     createdAt: datetime
     updatedAt: datetime
     
