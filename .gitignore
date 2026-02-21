@@ -47,3 +47,13 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Project specific
+uploads/*
+!uploads/.gitkeep
+
+# Testing and Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+pytest.log
+

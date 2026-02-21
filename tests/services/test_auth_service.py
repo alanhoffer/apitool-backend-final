@@ -24,7 +24,7 @@ def test_verify_password(db):
 def test_create_access_token(db):
     """Test JWT token creation."""
     service = AuthService(db)
-    data = {"sub": 1, "username": "test@example.com", "role": "user"}
+    data = {"sub": 1, "username": "test@example.com", "role": "apicultor"}
     token = service.create_access_token(data)
     
     assert token is not None

@@ -57,7 +57,7 @@ def test_user(db):
         surname="User",
         email="test@example.com",
         password=pwd_context.hash("password123"),
-        role=Role.USER
+        role=Role.APICULTOR
     )
     db.add(user)
     db.commit()

@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from app.routers import (
     auth_router, user_router, apiary_router, news_router, 
     weather_router, recommendations_router, notification_router, drum_router,
-    task_router
+    task_router,
 )
+from app.routers.audio import router as audio_router
 from app.routers.health import router as health_router
 from app.routers.metrics import router as metrics_router
 from app.middleware.metrics import MetricsMiddleware
@@ -102,6 +103,7 @@ app.include_router(recommendations_router)
 app.include_router(notification_router)
 app.include_router(drum_router)
 app.include_router(task_router)
+app.include_router(audio_router)
 
 # Import cache router after other routers
 from app.routers.cache import router as cache_router

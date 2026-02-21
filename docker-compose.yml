@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: apitool-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-bija}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-15441109Gordo.}
+      POSTGRES_DB: ${DB_NAME:-apitool1}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: apitool-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-bija}
+      - DB_PASSWORD=${DB_PASSWORD:-15441109Gordo.}
+      - DB_NAME=${DB_NAME:-apitool1}
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    depends_on:
+      - db
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_data:

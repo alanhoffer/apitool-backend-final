@@ -50,7 +50,7 @@ def test_get_drum_wrong_user(db, test_user, test_drum):
         surname="User",
         email="other@example.com",
         password=pwd_context.hash("password123"),
-        role=Role.USER
+        role=Role.APICULTOR
     )
     db.add(other_user)
     db.commit()

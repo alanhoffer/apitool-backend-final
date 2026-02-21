@@ -5,8 +5,11 @@ from app.database import Base
 import enum
 
 class Role(str, enum.Enum):
-    USER = "user"
+    USER = "user"  # Legacy
     ADMIN = "admin"
+    APICULTOR = "apicultor"
+    APICULTOR_PREMIUM = "apicultor_premium"
+    MODERADOR = "moderador"
 
 class RoleType(TypeDecorator):
     """Custom type decorator to handle Role enum as string in database."""
@@ -50,7 +53,7 @@ class User(Base):
     password = Column(String, nullable=False)
     createdAt = Column(DateTime, server_default=func.current_timestamp())
     authStrategy = Column(String, nullable=True)
-    role = Column(RoleType(), default=Role.USER)
+    role = Column(RoleType(), default=Role.APICULTOR)
     expoPushToken = Column(String, nullable=True)
     
     apiarys = relationship("Apiary", back_populates="user", cascade="all, delete-orphan")

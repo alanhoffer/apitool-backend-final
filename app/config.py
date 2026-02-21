@@ -36,7 +36,10 @@ class Settings(BaseSettings):
         default="http://apitoolbackend.ddns.net:5173/",
         description="Base URL for the application"
     )
-    
+
+    # IA / Audio (opcional): si no se define, el endpoint /api/audio responde con mensaje informativo
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key para transcripción (Whisper) y chat")
+
     # Configuración de Pydantic v2 para ignorar campos extra
     model_config = ConfigDict(
         env_file=".env",

@@ -82,3 +82,18 @@ def require_role(required_role: Optional[str] = None):
     
     return role_checker
 
+def require_roles(allowed_roles: list[str]):
+    async def role_checker(
+        payload: dict = Depends(get_current_user_payload)
+    ):
+        if allowed_roles:
+            user_role = payload.get("role")
+            if user_role not in allowed_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not enough permissions"
+                )
+        return payload
+    
+    return role_checker
+
