@@ -7,7 +7,8 @@ def test_get_weather_success(client):
         "current": {"temp_c": 20, "condition": {"text": "Sunny"}}
     }
     
-    with patch("app.services.weather_service.httpx.AsyncClient") as mock_client:
+    with patch("app.services.weather_service.settings.weather_api_key", "test-weather-key"), \
+         patch("app.services.weather_service.httpx.AsyncClient") as mock_client:
         mock_response = Mock()
         mock_response.json.return_value = mock_weather_data
         mock_response.raise_for_status = Mock()

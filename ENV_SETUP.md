@@ -1,75 +1,50 @@
-# Configuración de Variables de Entorno
+# Configuracion de Variables de Entorno
 
-## Archivo .env
+## Paso recomendado
 
-Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
+1. Copia `.env.example` a `.env`
+2. Reemplaza todos los placeholders antes de arrancar la API
 
 ```env
-# Database Configuration
-DB_HOST=192.168.1.139
+APP_ENV=development
+DB_HOST=localhost
 DB_PORT=5432
-DB_USER=bija
-DB_PASSWORD=your_password_here
+DB_USER=postgres
+DB_PASSWORD=change-me
 DB_NAME=apitool1
-
-# JWT Configuration (IMPORTANT: Change this in production!)
-JWT_SECRET=your_secret_key_here_minimum_32_characters
+JWT_SECRET=replace-with-a-long-random-secret
 JWT_ALGORITHM=HS256
 JWT_EXPIRATION_DAYS=365
-
-# Bcrypt
 BCRYPT_SALT_ROUNDS=10
-
-# Weather API
-WEATHER_API_KEY=your_weather_api_key_here
-
-# CORS Configuration
-# For production, specify allowed origins separated by commas
-# Example: CORS_ORIGINS=https://example.com,https://app.example.com
-# Use * for development only (not recommended for production)
+WEATHER_API_KEY=replace-with-your-weather-api-key
 CORS_ORIGINS=*
-
-# Base URL
-BASE_URL=http://apitoolbackend.ddns.net:5173/
-
-# Logging Configuration
+BASE_URL=http://localhost:3000/
 LOG_LEVEL=INFO
 JSON_LOGGING=false
 ```
 
-## Notas Importantes
+## Reglas importantes
 
-1. **JWT_SECRET**: 
-   - En producción, DEBE ser un string aleatorio y seguro de al menos 32 caracteres
-   - Puedes generar uno con: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-   - Si no se configura, se generará uno automáticamente (solo para desarrollo)
+1. `JWT_SECRET`
+- Es obligatorio fuera de testing.
+- Usa al menos 32 caracteres aleatorios.
 
-2. **CORS_ORIGINS**:
-   - En desarrollo puedes usar `*` para permitir todos los orígenes
-   - En producción, especifica los orígenes permitidos separados por comas
-   - Ejemplo: `CORS_ORIGINS=https://app.example.com,https://admin.example.com`
+2. `DB_PASSWORD`
+- `change-me` es solo placeholder.
+- No lo uses en entornos reales.
 
-3. **Logging**:
-   - `LOG_LEVEL`: Nivel de logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-   - `JSON_LOGGING`: Si usar formato JSON estructurado (`true`/`false`)
-   - Para producción, considera usar `JSON_LOGGING=true` para mejor integración con sistemas de logging
+3. `WEATHER_API_KEY`
+- Si no esta definida, `/weather` devolvera `503`.
 
-4. **Seguridad**:
-   - NUNCA commitees el archivo `.env` al repositorio
-   - El archivo `.env` ya está en `.gitignore`
-   - Usa diferentes valores para desarrollo y producción
+4. `TESTING=1`
+- Activa un secret JWT fijo de testing y evita romper la suite automatizada.
 
-## Generar JWT_SECRET
+5. `CORS_ORIGINS`
+- Usa `*` solo en desarrollo local.
+- En produccion define dominios explicitos separados por coma.
 
-Para generar un JWT_SECRET seguro:
+## Generar un JWT_SECRET
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
-
-O usando OpenSSL:
-
-```bash
-openssl rand -hex 32
-```
-

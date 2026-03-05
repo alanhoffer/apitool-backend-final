@@ -1,66 +1,109 @@
-from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field
+from pydantic_settings import BaseSettings
 import os
-import secrets
+import warnings
+
+
+def _is_testing() -> bool:
+    return os.getenv("TESTING") == "1"
+
+
+def _environment_name() -> str:
+    return os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or ("testing" if _is_testing() else "development")
+
 
 class Settings(BaseSettings):
+    environment: str = Field(default_factory=_environment_name, description="Current runtime environment")
+
     # Database
-    db_host: str = Field(default="192.168.1.139", description="Database host")
+    db_host: str = Field(default="localhost", description="Database host")
     db_port: int = Field(default=5432, description="Database port")
-    db_user: str = Field(default="bija", description="Database user")
-    db_password: str = Field(default="15441109Gordo.", description="Database password")
+    db_user: str = Field(default="postgres", description="Database user")
+    db_password: str = Field(default="change-me", description="Database password")
     db_name: str = Field(default="apitool1", description="Database name")
-    
+
     # Weather API
-    weather_api_key: str = Field(default="3389c5ddfc124bf4a1c00055242909", description="Weather API key")
-    
+    weather_api_key: str | None = Field(default=None, description="Weather API key")
+
     # JWT Configuration
-    jwt_secret: str = Field(
-        default_factory=lambda: os.getenv("JWT_SECRET") or secrets.token_urlsafe(32),
-        description="JWT secret key (should be set via JWT_SECRET env var)"
+    jwt_secret: str | None = Field(
+        default=None,
+        description="JWT secret key. Required outside testing unless you explicitly accept insecure development defaults."
     )
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
     jwt_expiration_days: int = Field(default=365, description="JWT expiration in days")
-    
+
     # Bcrypt
     bcrypt_salt_rounds: int = Field(default=10, description="Bcrypt salt rounds")
-    
+
     # CORS
     cors_origins: str = Field(
         default="*",
-        description="CORS allowed origins (comma-separated, use * for all)"
+        description="CORS allowed origins (comma-separated, use * only for local development)"
     )
-    
+
     # Base URL
     base_url: str = Field(
-        default="http://apitoolbackend.ddns.net:5173/",
+        default="http://localhost:3000/",
         description="Base URL for the application"
     )
 
-    # IA / Audio (opcional): si no se define, el endpoint /api/audio responde con mensaje informativo
-    openai_api_key: str | None = Field(default=None, description="OpenAI API key para transcripción (Whisper) y chat")
+    # IA / Audio
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key para transcripcion y chat")
 
-    # Configuración de Pydantic v2 para ignorar campos extra
     model_config = ConfigDict(
         env_file=".env",
-        extra="ignore"  # Ignora campos extra en lugar de lanzar error
+        extra="ignore"
     )
-    
+
     @property
     def cors_origins_list(self) -> list[str]:
-        """Parse CORS origins string into list."""
         if self.cors_origins == "*":
             return ["*"]
-        return [origin.strip() for origin in self.cors_origins.split(",")]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def is_testing(self) -> bool:
+        return self.environment == "testing" or _is_testing()
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
+    @property
+    def effective_jwt_secret(self) -> str:
+        if self.jwt_secret:
+            return self.jwt_secret
+        if self.is_testing:
+            return "test-only-jwt-secret"
+        raise RuntimeError(
+            "JWT_SECRET is required. Define it in the environment or .env before starting the API."
+        )
+
 
 settings = Settings()
 
-# Warn if using default JWT_SECRET (security risk)
-if not os.getenv("JWT_SECRET"):
-    import warnings
+
+if settings.db_password == "change-me" and not settings.is_testing:
     warnings.warn(
-        "JWT_SECRET not set in environment. Using auto-generated secret. "
-        "Set JWT_SECRET in .env file for production!",
+        "DB_PASSWORD is using the placeholder value 'change-me'. Configure real database credentials in .env.",
         UserWarning
     )
 
+if settings.weather_api_key is None:
+    warnings.warn(
+        "WEATHER_API_KEY is not configured. /weather will fail until you define it in .env or the environment.",
+        UserWarning
+    )
+
+if not settings.jwt_secret:
+    if settings.is_testing:
+        warnings.warn(
+            "JWT_SECRET not set. Using a fixed testing secret because TESTING=1.",
+            UserWarning
+        )
+    else:
+        warnings.warn(
+            "JWT_SECRET is not configured. The API will refuse to start auth-dependent paths until you define it.",
+            UserWarning
+        )

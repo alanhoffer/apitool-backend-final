@@ -9,6 +9,12 @@ class WeatherService:
     
     @cached(ttl=600, key_prefix="weather")  # Cache por 10 minutos
     async def get_weather(self, lat: float, lon: float):
+        if not self.api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Weather service is not configured"
+            )
+
         url = f"http://api.weatherapi.com/v1/current.json?key={self.api_key}&q={lat},{lon}&aqi=no"
         
         try:
@@ -26,4 +32,3 @@ class WeatherService:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Weather service error: {str(exc)}"
             )
-
