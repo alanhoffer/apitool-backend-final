@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from app.services.auth_service import AuthService
 from app.schemas.user import CreateUser, LoginUser
@@ -31,8 +32,7 @@ def test_create_access_token(db):
     assert isinstance(token, str)
     assert len(token) > 0
 
-@pytest.mark.asyncio
-async def test_sign_in_success(db, test_user):
+def test_sign_in_success(db, test_user):
     """Test successful sign in."""
     service = AuthService(db)
     login_data = LoginUser(
@@ -40,14 +40,13 @@ async def test_sign_in_success(db, test_user):
         password="password123"
     )
     
-    result = await service.sign_in(login_data)
+    result = asyncio.run(service.sign_in(login_data))
     
     assert result is not None
     assert result.user_id == test_user.id
     assert result.access_token is not None
 
-@pytest.mark.asyncio
-async def test_sign_in_wrong_password(db, test_user):
+def test_sign_in_wrong_password(db, test_user):
     """Test sign in with wrong password."""
     service = AuthService(db)
     login_data = LoginUser(
@@ -56,10 +55,9 @@ async def test_sign_in_wrong_password(db, test_user):
     )
     
     with pytest.raises(Exception):
-        await service.sign_in(login_data)
+        asyncio.run(service.sign_in(login_data))
 
-@pytest.mark.asyncio
-async def test_sign_in_user_not_found(db):
+def test_sign_in_user_not_found(db):
     """Test sign in with non-existent user."""
     service = AuthService(db)
     login_data = LoginUser(
@@ -68,10 +66,9 @@ async def test_sign_in_user_not_found(db):
     )
     
     with pytest.raises(Exception):
-        await service.sign_in(login_data)
+        asyncio.run(service.sign_in(login_data))
 
-@pytest.mark.asyncio
-async def test_sign_up_success(db):
+def test_sign_up_success(db):
     """Test successful sign up."""
     service = AuthService(db)
     signup_data = CreateUser(
@@ -81,14 +78,13 @@ async def test_sign_up_success(db):
         password="password123"
     )
     
-    result = await service.sign_up(signup_data)
+    result = asyncio.run(service.sign_up(signup_data))
     
     assert result is not None
     assert result.user_id is not None
     assert result.access_token is not None
 
-@pytest.mark.asyncio
-async def test_sign_up_duplicate_email(db, test_user):
+def test_sign_up_duplicate_email(db, test_user):
     """Test sign up with duplicate email."""
     service = AuthService(db)
     signup_data = CreateUser(
@@ -99,5 +95,5 @@ async def test_sign_up_duplicate_email(db, test_user):
     )
     
     with pytest.raises(Exception):
-        await service.sign_up(signup_data)
+        asyncio.run(service.sign_up(signup_data))
 

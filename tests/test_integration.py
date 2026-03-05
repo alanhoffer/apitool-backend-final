@@ -28,12 +28,7 @@ def test_full_user_flow(client):
 
 def test_apiary_crud_flow(client, auth_headers, test_user):
     """Test complete CRUD flow for apiaries."""
-    import io
-    
-    # Create
-    file_content = b"fake image"
-    file = io.BytesIO(file_content)
-    
+
     create_response = client.post(
         "/apiarys",
         headers=auth_headers,
@@ -42,8 +37,7 @@ def test_apiary_crud_flow(client, auth_headers, test_user):
             "hives": "15",
             "status": "normal",
             "settings": '{"honey": true, "levudex": true}'
-        },
-        files={"file": ("test.jpg", file, "image/jpeg")}
+        }
     )
     assert create_response.status_code == 200
     apiary_id = create_response.json()["id"]
@@ -73,12 +67,12 @@ def test_apiary_crud_flow(client, auth_headers, test_user):
     verify_response = client.get(f"/apiarys/{apiary_id}", headers=auth_headers)
     assert verify_response.status_code == 404
 
-def test_news_crud_flow(client, auth_headers):
+def test_news_crud_flow(client, admin_headers):
     """Test complete CRUD flow for news."""
     # Create
     create_response = client.post(
         "/news",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Test News",
             "content": "Content here",
@@ -89,13 +83,13 @@ def test_news_crud_flow(client, auth_headers):
     news_id = create_response.json()["id"]
     
     # Read
-    get_response = client.get(f"/news/{news_id}", headers=auth_headers)
+    get_response = client.get(f"/news/{news_id}", headers=admin_headers)
     assert get_response.status_code == 200
     
     # Update
     update_response = client.put(
         f"/news/{news_id}",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Updated News"
         }
@@ -103,6 +97,6 @@ def test_news_crud_flow(client, auth_headers):
     assert update_response.status_code == 200
     
     # Delete
-    delete_response = client.delete(f"/news/{news_id}", headers=auth_headers)
+    delete_response = client.delete(f"/news/{news_id}", headers=admin_headers)
     assert delete_response.status_code == 200
 

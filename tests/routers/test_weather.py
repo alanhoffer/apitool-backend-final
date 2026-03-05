@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import Mock, patch, AsyncMock
 
 def test_get_weather_success(client):
     """Test getting weather information."""
@@ -9,15 +8,15 @@ def test_get_weather_success(client):
     }
     
     with patch("app.services.weather_service.httpx.AsyncClient") as mock_client:
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.json.return_value = mock_weather_data
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
         mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
         
         response = client.get("/weather?lat=40.7128&lon=-74.0060")
         
-        # Note: This test might need adjustment based on actual implementation
-        assert response.status_code in [200, 500]  # 500 if API key is invalid
+        assert response.status_code == 200
+        assert response.json() == mock_weather_data
 
 def test_get_weather_missing_params(client):
     """Test getting weather without parameters."""

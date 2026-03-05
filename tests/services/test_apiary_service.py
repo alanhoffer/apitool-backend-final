@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from decimal import Decimal
 from app.services.apiary_service import ApiaryService
@@ -26,9 +27,8 @@ def test_get_all_by_user_id(db, test_user, test_apiary):
     apiaries = service.get_all_by_user_id(test_user.id)
     
     assert len(apiaries) > 0
-    # In Pydantic v2, access private attributes using getattr or model_dump with include
-    apiary_data = apiaries[0].model_dump(include={"_id"})
-    assert apiary_data["_id"] == test_apiary.id
+    apiary_data = apiaries[0].model_dump()
+    assert apiary_data["id"] == test_apiary.id
 
 def test_create_apiary(db, test_user):
     """Test creating a new apiary."""
@@ -40,7 +40,7 @@ def test_create_apiary(db, test_user):
         settings='{"honey": true, "levudex": true}'
     )
     
-    apiary = service.create_apiary(test_user.id, apiary_data)
+    apiary = asyncio.run(service.create_apiary(test_user.id, apiary_data))
     
     assert apiary is not None
     assert apiary.name == "New Apiary"
@@ -55,7 +55,7 @@ def test_update_apiary(db, test_apiary):
         status="active"
     )
     
-    updated = service.update_apiary(test_apiary.id, update_data)
+    updated = asyncio.run(service.update_apiary(test_apiary.id, update_data))
     
     assert updated is not None
     assert updated.hives == 15

@@ -11,11 +11,11 @@ def test_get_all_news(client, auth_headers):
         data = response.json()
         assert isinstance(data, list)
 
-def test_create_news(client, auth_headers):
+def test_create_news(client, admin_headers):
     """Test creating news."""
     response = client.post(
         "/news",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Test News",
             "content": "This is test news content",
@@ -28,12 +28,12 @@ def test_create_news(client, auth_headers):
     assert data["title"] == "Test News"
     assert data["content"] == "This is test news content"
 
-def test_get_news_by_id(client, auth_headers):
+def test_get_news_by_id(client, admin_headers):
     """Test getting news by ID."""
     # First create news
     create_response = client.post(
         "/news",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Test News",
             "content": "Content",
@@ -43,18 +43,18 @@ def test_get_news_by_id(client, auth_headers):
     news_id = create_response.json()["id"]
     
     # Then get it
-    response = client.get(f"/news/{news_id}", headers=auth_headers)
+    response = client.get(f"/news/{news_id}", headers=admin_headers)
     
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == news_id
 
-def test_update_news(client, auth_headers):
+def test_update_news(client, admin_headers):
     """Test updating news."""
     # First create news
     create_response = client.post(
         "/news",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Original Title",
             "content": "Original Content",
@@ -66,7 +66,7 @@ def test_update_news(client, auth_headers):
     # Then update it
     response = client.put(
         f"/news/{news_id}",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "Updated Title"
         }
@@ -76,12 +76,12 @@ def test_update_news(client, auth_headers):
     data = response.json()
     assert data["title"] == "Updated Title"
 
-def test_delete_news(client, auth_headers):
+def test_delete_news(client, admin_headers):
     """Test deleting news."""
     # First create news
     create_response = client.post(
         "/news",
-        headers=auth_headers,
+        headers=admin_headers,
         json={
             "title": "To Delete",
             "content": "Content",
@@ -91,11 +91,11 @@ def test_delete_news(client, auth_headers):
     news_id = create_response.json()["id"]
     
     # Then delete it
-    response = client.delete(f"/news/{news_id}", headers=auth_headers)
+    response = client.delete(f"/news/{news_id}", headers=admin_headers)
     
     assert response.status_code == 200
     
     # Verify it's deleted
-    get_response = client.get(f"/news/{news_id}", headers=auth_headers)
+    get_response = client.get(f"/news/{news_id}", headers=admin_headers)
     assert get_response.status_code == 404
 
