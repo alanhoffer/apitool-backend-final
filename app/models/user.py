@@ -61,3 +61,4 @@ class User(Base):
     devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
     drums = relationship("Drum", back_populates="user", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    hives = relationship("Hive", back_populates="user", cascade="all, delete-orphan")

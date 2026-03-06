@@ -32,4 +32,4 @@ class Apiary(Base):
     user = relationship("User", back_populates="apiarys")
     settings = relationship("Settings", back_populates="apiary", uselist=False, cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="apiary")
-
+    hives_rel = relationship("Hive", back_populates="apiary", cascade="all, delete-orphan")

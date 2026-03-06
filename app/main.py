@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.routers import (
     auth_router, user_router, apiary_router, news_router, 
     weather_router, recommendations_router, notification_router, drum_router,
-    task_router,
+    hive_router, task_router,
 )
 from app.routers.audio import router as audio_router
 from app.routers.health import router as health_router
@@ -102,6 +102,7 @@ app.include_router(weather_router)
 app.include_router(recommendations_router)
 app.include_router(notification_router)
 app.include_router(drum_router)
+app.include_router(hive_router)
 app.include_router(task_router)
 app.include_router(audio_router)
 
@@ -112,4 +113,3 @@ app.include_router(cache_router)
 @app.get("/")
 async def root():
     return {"message": "UnAuthorized"}
-
