@@ -96,9 +96,9 @@ def build_apiary_detail(apiary: Apiary) -> ApiaryDetail:
         tFence=apiary.tFence,
         tComment=apiary.tComment,
         transhumance=apiary.transhumance,
+        managementType=apiary.managementType or "apiary",
         latitude=apiary.latitude,
         longitude=apiary.longitude,
         createdAt=apiary.createdAt,
         updatedAt=apiary.updatedAt
     )
-

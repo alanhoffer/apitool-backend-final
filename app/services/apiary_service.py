@@ -77,6 +77,7 @@ class ApiaryService:
                 _tFence=apiary.tFence,
                 _tComment=apiary.tComment,
                 _transhumance=apiary.transhumance,
+                _managementType=apiary.managementType or "apiary",
                 _settings=settings_response,
                 _updatedAt=apiary.updatedAt
             )
@@ -178,6 +179,7 @@ class ApiaryService:
             tFence=apiary_data.tFence,
             tComment=apiary_data.tComment,
             transhumance=apiary_data.transhumance,
+            managementType=apiary_data.managementType or "apiary",
             latitude=apiary_data.latitude,
             longitude=apiary_data.longitude
         )
@@ -222,7 +224,8 @@ class ApiaryService:
             tFlumetrine=None,
             tFence=None,
             tComment=None,
-            transhumance=None
+            transhumance=None,
+            managementType=None,
         )
         self.history_service.log_changes(old_apiary, new_apiary)
         
@@ -266,7 +269,8 @@ class ApiaryService:
             'tFlumetrine': apiary.tFlumetrine,
             'tFence': apiary.tFence,
             'tComment': apiary.tComment,
-            'transhumance': apiary.transhumance
+            'transhumance': apiary.transhumance,
+            'managementType': apiary.managementType,
         }
         
         update_data = apiary_data.dict(exclude_unset=True, exclude_none=True)

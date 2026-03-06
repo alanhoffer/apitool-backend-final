@@ -46,6 +46,7 @@ def test_create_apiary(client, auth_headers, test_user):
         data={
             "name": "New Apiary",
             "hives": "10",
+            "managementType": "individual",
             "status": "normal",
             "settings": '{"honey": true}'
         },
@@ -56,6 +57,7 @@ def test_create_apiary(client, auth_headers, test_user):
     data = response.json()
     assert data["name"] == "New Apiary"
     assert data["hives"] == 10
+    assert data["managementType"] == "individual"
 
 def test_create_apiary_without_file(client, auth_headers, test_user):
     """Test creating apiary without file."""
@@ -81,6 +83,7 @@ def test_update_apiary(client, auth_headers, test_apiary):
         headers=auth_headers,
         data={
             "hives": "20",
+            "managementType": "individual",
             "status": "active"
         }
     )
@@ -89,6 +92,7 @@ def test_update_apiary(client, auth_headers, test_apiary):
     data = response.json()
     assert data["hives"] == 20
     assert data["status"] == "active"
+    assert data["managementType"] == "individual"
 
 def test_delete_apiary(client, auth_headers, test_apiary):
     """Test deleting an apiary."""
@@ -188,4 +192,3 @@ def test_set_harvesting_for_all_unauthorized(client):
     )
     
     assert response.status_code == 403
-

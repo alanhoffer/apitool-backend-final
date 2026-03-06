@@ -177,6 +177,7 @@ async def create_apiary(
     apiary_data = CreateApiary(
         name=form.get("name") or "",
         hives=safe_int_convert(form.get("hives"), 0) or 0,
+        managementType=form.get("managementType") or "apiary",
         status=form.get("status", "normal"),
         honey=safe_float_convert(form.get("honey")),
         levudex=safe_float_convert(form.get("levudex")),
@@ -237,6 +238,7 @@ async def update_apiary(
     
     form = await request.form()
     update_data = UpdateApiary(
+        managementType=form.get("managementType"),
         hives=safe_int_convert(form.get("hives")),
         status=form.get("status"),
         honey=safe_float_convert(form.get("honey")),
@@ -362,4 +364,3 @@ async def set_harvesting_for_all(
     settings_service.set_harvesting_for_all_apiaries(user_id, harvesting)
     
     return {"message": "Harvesting status updated for all apiaries"}
-

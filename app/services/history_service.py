@@ -39,7 +39,8 @@ class HistoryService:
             'tFlumetrine': getattr(old_apiary, 'tFlumetrine', None),
             'tFence': getattr(old_apiary, 'tFence', None),
             'tComment': getattr(old_apiary, 'tComment', None),
-            'transhumance': getattr(old_apiary, 'transhumance', None)
+            'transhumance': getattr(old_apiary, 'transhumance', None),
+            'managementType': getattr(old_apiary, 'managementType', None)
         }
         
         new_dict = {
@@ -58,7 +59,8 @@ class HistoryService:
             'tFlumetrine': getattr(new_apiary, 'tFlumetrine', None),
             'tFence': getattr(new_apiary, 'tFence', None),
             'tComment': getattr(new_apiary, 'tComment', None),
-            'transhumance': getattr(new_apiary, 'transhumance', None)
+            'transhumance': getattr(new_apiary, 'transhumance', None),
+            'managementType': getattr(new_apiary, 'managementType', None)
         }
         
         for key in old_dict:

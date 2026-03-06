@@ -19,6 +19,7 @@ except ImportError:
 class CreateApiary(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Apiary name")
     hives: int = Field(..., ge=0, description="Number of hives (must be >= 0)")
+    managementType: str = Field(default="apiary", description="Management type: apiary or individual")
     status: str = Field(default="normal", description="Apiary status")
     image: Optional[str] = None
     honey: Optional[Decimal] = Field(None, ge=0, description="Honey amount (must be >= 0)")
@@ -39,6 +40,7 @@ class CreateApiary(BaseModel):
 
 class UpdateApiary(BaseModel):
     image: Optional[str] = None
+    managementType: Optional[str] = None
     hives: Optional[int] = Field(None, ge=0, description="Number of hives (must be >= 0)")
     status: Optional[str] = None
     honey: Optional[Decimal] = Field(None, ge=0, description="Honey amount (must be >= 0)")
@@ -80,6 +82,7 @@ class ApiaryResponse(BaseModel):
     tFence: int = Field(alias="_tFence")
     tComment: str = Field(alias="_tComment")
     transhumance: Optional[int] = Field(default=None, alias="_transhumance")
+    managementType: str = Field(default="apiary", alias="_managementType")
     settings: Optional['SettingsResponse'] = Field(default=None, alias="_settings")
     updatedAt: datetime = Field(alias="_updatedAt")
 
@@ -102,6 +105,7 @@ class ApiaryDetail(BaseModel):
     tFence: int
     tComment: str
     transhumance: Optional[int] = None
+    managementType: str = "apiary"
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
     createdAt: datetime

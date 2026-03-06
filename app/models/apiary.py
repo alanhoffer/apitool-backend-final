@@ -24,6 +24,7 @@ class Apiary(Base):
     tFence = Column(Integer, default=0)
     tComment = Column(String, default="")
     transhumance = Column(Integer, nullable=True, default=0)
+    managementType = Column(String, nullable=False, default="apiary")
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
     createdAt = Column(DateTime, server_default=func.current_timestamp())
