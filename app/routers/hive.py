@@ -7,6 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.hive import HiveCreate, HiveResponse, HiveUpdate, HivesListResponse
+from app.schemas.hive_history import HiveHistoryResponse
 from app.services.hive_service import HiveService
 
 router = APIRouter(prefix="/hives", tags=["hives"])
@@ -52,6 +53,22 @@ async def get_hive(
             detail="Hive not found",
         )
     return hive
+
+
+@router.get("/{id}/history", response_model=list[HiveHistoryResponse])
+async def get_hive_history(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    service = HiveService(db)
+    hive = service.get_hive_by_id(id, current_user.id)
+    if not hive:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hive not found",
+        )
+    return service.get_hive_history(id, current_user.id)
 
 
 @router.put("/{id}", response_model=HiveResponse)

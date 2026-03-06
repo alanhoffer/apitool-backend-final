@@ -3,6 +3,7 @@ from .auth import AuthData
 from .apiary import CreateApiary, UpdateApiary, ApiaryResponse, ApiaryDetail
 from .settings import CreateSettings, UpdateSettings, SettingsResponse
 from .history import HistoryResponse
+from .hive_history import HiveHistoryResponse
 from .news import NewsCreate, NewsUpdate, NewsResponse
 
 # Resolver forward references para Pydantic v2
@@ -17,7 +18,6 @@ __all__ = [
     "AuthData",
     "CreateApiary", "UpdateApiary", "ApiaryResponse",
     "CreateSettings", "UpdateSettings", "SettingsResponse",
-    "HistoryResponse",
+    "HistoryResponse", "HiveHistoryResponse",
     "NewsCreate", "NewsUpdate", "NewsResponse"
 ]
-

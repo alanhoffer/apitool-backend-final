@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app.database import Base, get_db
 from app.main import app
-from app.models import User, Apiary, Settings, History, News, Drum, Hive
+from app.models import User, Apiary, Settings, History, News, Drum, Hive, HiveHistory
 from app.models.user import Role
 
 # Use in-memory SQLite for testing

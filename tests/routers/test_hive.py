@@ -84,3 +84,38 @@ def test_delete_hive_updates_apiary_count(client, auth_headers, test_apiary):
     apiary_response = client.get(f"/apiarys/{test_apiary.id}", headers=auth_headers)
     assert apiary_response.status_code == 200
     assert apiary_response.json()["hives"] == 0
+
+
+def test_get_hive_history(client, auth_headers, test_apiary):
+    create_response = client.post(
+        "/hives",
+        headers=auth_headers,
+        json={
+            "apiaryId": test_apiary.id,
+            "name": "H-005",
+            "status": "Bueno",
+            "population": 5,
+        },
+    )
+    assert create_response.status_code == 201
+    hive_id = create_response.json()["id"]
+
+    update_response = client.put(
+        f"/hives/{hive_id}",
+        headers=auth_headers,
+        json={
+            "status": "Excel.",
+            "population": 8,
+            "tComment": "Revisión general",
+        },
+    )
+    assert update_response.status_code == 200
+
+    response = client.get(f"/hives/{hive_id}/history", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) >= 1
+    assert data[0]["hiveId"] == hive_id
+    assert data[0]["changes"]["status"] == "Excel."
+    assert data[0]["changes"]["population"] == 8

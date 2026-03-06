@@ -6,11 +6,13 @@ from sqlalchemy.orm import Session
 from app.models.apiary import Apiary
 from app.models.hive import Hive
 from app.schemas.hive import HiveCreate, HiveUpdate
+from app.services.hive_history_service import HiveHistoryService
 
 
 class HiveService:
     def __init__(self, db: Session):
         self.db = db
+        self.history_service = HiveHistoryService(db)
 
     def _get_owned_apiary(self, apiary_id: int, user_id: int) -> Optional[Apiary]:
         return self.db.query(Apiary).filter(
@@ -35,6 +37,10 @@ class HiveService:
         self._sync_apiary_hive_count(hive.apiaryId)
         self.db.commit()
         self.db.refresh(hive)
+        self.history_service.log_changes(
+            self.history_service.build_empty_hive(hive),
+            hive,
+        )
         return hive
 
     def get_hives(self, user_id: int, apiary_id: Optional[int] = None) -> List[Hive]:
@@ -53,12 +59,21 @@ class HiveService:
         if not hive:
             return None
 
+        old_values = {
+            field: getattr(hive, field)
+            for field in self.history_service.tracked_fields
+        }
         update_data = updates.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(hive, key, value)
 
         self.db.commit()
         self.db.refresh(hive)
+        self.history_service.log_changes(
+            type("OldHive", (), {**old_values, "id": hive.id, "apiaryId": hive.apiaryId, "userId": hive.userId})(),
+            hive,
+            comment=update_data.get("tComment"),
+        )
         return hive
 
     def delete_hive(self, hive_id: int, user_id: int) -> bool:
@@ -72,3 +87,6 @@ class HiveService:
         self._sync_apiary_hive_count(apiary_id)
         self.db.commit()
         return True
+
+    def get_hive_history(self, hive_id: int, user_id: int):
+        return self.history_service.get_hive_history(hive_id, user_id)
