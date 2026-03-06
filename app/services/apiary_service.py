@@ -56,6 +56,16 @@ class ApiaryService:
                     tComment=apiary.settings.tComment,
                     transhumance=apiary.settings.transhumance,
                     harvesting=apiary.settings.harvesting,
+                    queenStatus=apiary.settings.queenStatus,
+                    population=apiary.settings.population,
+                    broodFrames=apiary.settings.broodFrames,
+                    honeyFrames=apiary.settings.honeyFrames,
+                    pollenFrames=apiary.settings.pollenFrames,
+                    lastInspection=apiary.settings.lastInspection,
+                    hiveStrength=apiary.settings.hiveStrength,
+                    swarming=apiary.settings.swarming,
+                    disease=apiary.settings.disease,
+                    production=apiary.settings.production,
                     tasks=apiary.settings.tasks
                 )
             

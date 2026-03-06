@@ -21,7 +21,16 @@ class Settings(Base):
     tComment = Column(Boolean, default=True)
     transhumance = Column(Boolean, default=True)
     harvesting = Column(Boolean, default=False)
+    queenStatus = Column(Boolean, default=False)
+    population = Column(Boolean, default=False)
+    broodFrames = Column(Boolean, default=False)
+    honeyFrames = Column(Boolean, default=False)
+    pollenFrames = Column(Boolean, default=False)
+    lastInspection = Column(Boolean, default=False)
+    hiveStrength = Column(Boolean, default=False)
+    swarming = Column(Boolean, default=False)
+    disease = Column(Boolean, default=False)
+    production = Column(Boolean, default=False)
     tasks = Column(Text, nullable=True)
     
     apiary = relationship("Apiary", back_populates="settings")
-
