@@ -1,25 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user_payload
 from app.services.apiary_service import ApiaryService
 from app.services.user_service import UserService
 from app.services.settings_service import SettingsService
+from app.services.subscription_service import SubscriptionService
 from app.schemas.apiary import CreateApiary, UpdateApiary, ApiaryResponse, ApiaryDetail, BoxStats, HarvestedCounts, HarvestedTodayCounts
 from app.schemas.settings import UpdateSettings
 from app.schemas.history import HistoryResponse
 from app.models.apiary import Apiary
+from app.runtime import get_upload_dir
+from app.services.blob_storage_service import BlobStorageService, is_blob_path
 from app.utils.helpers import verify_apiary_ownership, build_apiary_detail, safe_int_convert, safe_float_convert
 from typing import List
 import uuid
 import os
 from pathlib import Path
+import re
 
 router = APIRouter(prefix="/apiarys", tags=["apiarys"])
 
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = get_upload_dir()
 UPLOAD_DIR.mkdir(exist_ok=True)
+IMAGE_REF_RE = re.compile(r"^(?!/)(?!.*//)(?!.*\.\.)[A-Za-z0-9/_-]{1,255}\.(jpg|jpeg|png|gif|webp)$")
 
 @router.get("/{id}", response_model=ApiaryDetail)
 async def get_apiary(
@@ -189,7 +194,6 @@ async def create_apiary(
         tAmitraz=safe_int_convert(form.get("tAmitraz")),
         tFlumetrine=safe_int_convert(form.get("tFlumetrine")),
         tFence=safe_int_convert(form.get("tFence")),
-        tComment=form.get("tComment"),
         transhumance=safe_int_convert(form.get("transhumance")),
         latitude=safe_float_convert(form.get("latitude")),
         longitude=safe_float_convert(form.get("longitude")),
@@ -197,8 +201,22 @@ async def create_apiary(
     )
     
     apiary_service = ApiaryService(db)
+
+    # Verificar límite de suscripción
+    from app.models.apiary import Apiary as ApiaryModel
+    current_count = db.query(ApiaryModel).filter(ApiaryModel.userId == user_id).count()
+    subscription_service = SubscriptionService(db)
+    if not subscription_service.check_apiary_limit(user_id, current_count):
+        tier = subscription_service.get_tier(user_id)
+        from app.schemas.subscription import TIER_APIARY_LIMITS
+        limit = TIER_APIARY_LIMITS.get(tier)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Límite de apiarios alcanzado para tu plan ({limit} apiarios). Actualizá tu suscripción para agregar más."
+        )
+
     apiary_created = await apiary_service.create_apiary(user_id, apiary_data, file)
-    
+
     if not apiary_created:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -251,7 +269,6 @@ async def update_apiary(
         tAmitraz=safe_int_convert(form.get("tAmitraz")),
         tFlumetrine=safe_int_convert(form.get("tFlumetrine")),
         tFence=safe_int_convert(form.get("tFence")),
-        tComment=form.get("tComment"),
         transhumance=safe_int_convert(form.get("transhumance")),
         latitude=safe_float_convert(form.get("latitude")),
         longitude=safe_float_convert(form.get("longitude"))
@@ -266,9 +283,32 @@ async def update_apiary(
     
     return build_apiary_detail(updated_apiary)
 
-@router.get("/profile/image/{id}")
+@router.get("/profile/image/{id:path}")
 async def get_file(id: str):
-    file_path = UPLOAD_DIR / id
+    if not IMAGE_REF_RE.match(id or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file reference"
+        )
+
+    blob_url = BlobStorageService().resolve_public_url(id)
+    if blob_url:
+        return RedirectResponse(blob_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    if is_blob_path(id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+
+    file_path = (UPLOAD_DIR / id).resolve()
+    upload_root = UPLOAD_DIR.resolve()
+    if upload_root not in file_path.parents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file path"
+        )
+
     if not file_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

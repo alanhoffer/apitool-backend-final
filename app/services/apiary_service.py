@@ -11,20 +11,18 @@ import json
 from decimal import Decimal
 from fastapi import UploadFile, HTTPException, status
 import uuid
-from pathlib import Path
 import magic
 from PIL import Image
 import io
 from types import SimpleNamespace
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+from app.services.blob_storage_service import BlobStorageService, DEFAULT_APIARY_IMAGE
 
 class ApiaryService:
     def __init__(self, db: Session):
         self.db = db
         self.settings_service = SettingsService(db)
         self.history_service = HistoryService(db)
+        self.blob_storage = BlobStorageService()
     
     def get_all_by_user_id(self, user_id: int) -> List[ApiaryResponse]:
         from sqlalchemy.orm import joinedload
@@ -53,7 +51,6 @@ class ApiaryService:
                     tAmitraz=apiary.settings.tAmitraz,
                     tFlumetrine=apiary.settings.tFlumetrine,
                     tFence=apiary.settings.tFence,
-                    tComment=apiary.settings.tComment,
                     transhumance=apiary.settings.transhumance,
                     harvesting=apiary.settings.harvesting,
                     queenStatus=apiary.settings.queenStatus,
@@ -85,7 +82,6 @@ class ApiaryService:
                 _tAmitraz=apiary.tAmitraz,
                 _tFlumetrine=apiary.tFlumetrine,
                 _tFence=apiary.tFence,
-                _tComment=apiary.tComment,
                 _transhumance=apiary.transhumance,
                 _managementType=apiary.managementType or "apiary",
                 _settings=settings_response,
@@ -149,13 +145,17 @@ class ApiaryService:
             
             # 5. Generar nombre y guardar
             # Estandarizamos a .jpg para consistencia
-            filename = f"{uuid.uuid4()}.jpg" 
-            file_path = UPLOAD_DIR / filename
-            
+            filename = f"{uuid.uuid4()}.jpg"
+            output = io.BytesIO()
+
             # Guardar optimizado (quality=85 es un buen balance peso/calidad)
-            image.save(file_path, "JPEG", quality=85, optimize=True)
-            
-            return filename
+            image.save(output, "JPEG", quality=85, optimize=True)
+
+            return self.blob_storage.upload_apiary_image(
+                output.getvalue(),
+                filename=filename,
+                content_type="image/jpeg",
+            )
             
         except Exception as e:
             raise HTTPException(
@@ -166,10 +166,12 @@ class ApiaryService:
     async def create_apiary(self, user_id: int, apiary_data: CreateApiary, file: Optional[UploadFile] = None) -> Apiary:
         settings_data = json.loads(apiary_data.settings or '{}')
         
+        uploaded_image = None
         if file:
-            apiary_data.image = await self._process_image(file)
+            uploaded_image = await self._process_image(file)
+            apiary_data.image = uploaded_image
         else:
-            apiary_data.image = "apiary-default.png"
+            apiary_data.image = DEFAULT_APIARY_IMAGE
 
         new_apiary = Apiary(
             userId=user_id,
@@ -187,7 +189,6 @@ class ApiaryService:
             tAmitraz=apiary_data.tAmitraz,
             tFlumetrine=apiary_data.tFlumetrine,
             tFence=apiary_data.tFence,
-            tComment=apiary_data.tComment,
             transhumance=apiary_data.transhumance,
             managementType=apiary_data.managementType or "apiary",
             latitude=apiary_data.latitude,
@@ -196,22 +197,24 @@ class ApiaryService:
         
         self.db.add(new_apiary)
         try:
+            self.db.flush()
+
+            settings = Settings(
+                apiaryId=new_apiary.id,
+                apiaryUserId=user_id,
+                **settings_data
+            )
+            self.db.add(settings)
+
+            from app.services.task_service import TaskService
+            TaskService(self.db).create_fast_tasks_for_apiary(user_id, new_apiary.id, commit=False)
+
             self.db.commit()
             self.db.refresh(new_apiary)
         except Exception:
             self.db.rollback()
-            raise
-        
-        settings = Settings(
-            apiaryId=new_apiary.id,
-            apiaryUserId=user_id,
-            **settings_data
-        )
-        self.db.add(settings)
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
+            if uploaded_image:
+                self.blob_storage.delete_image(uploaded_image)
             raise
             
         # Log initial creation in history
@@ -233,7 +236,6 @@ class ApiaryService:
             tAmitraz=None,
             tFlumetrine=None,
             tFence=None,
-            tComment=None,
             transhumance=None,
             managementType=None,
         )
@@ -245,13 +247,16 @@ class ApiaryService:
         apiary = self.db.query(Apiary).filter(Apiary.id == apiary_id).first()
         if not apiary:
             return False
-        
+
+        image_to_delete = apiary.image
         self.db.delete(apiary)
         try:
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
+
+        self.blob_storage.delete_image(image_to_delete)
         return True
     
     async def update_apiary(self, apiary_id: int, apiary_data: UpdateApiary, file: Optional[UploadFile] = None) -> Optional[Apiary]:
@@ -259,8 +264,11 @@ class ApiaryService:
         if not apiary:
             return None
         
+        old_image = apiary.image
+        uploaded_image = None
         if file:
-            apiary_data.image = await self._process_image(file)
+            uploaded_image = await self._process_image(file)
+            apiary_data.image = uploaded_image
 
         # Create a copy of the old values for history
         old_values = {
@@ -278,7 +286,6 @@ class ApiaryService:
             'tAmitraz': apiary.tAmitraz,
             'tFlumetrine': apiary.tFlumetrine,
             'tFence': apiary.tFence,
-            'tComment': apiary.tComment,
             'transhumance': apiary.transhumance,
             'managementType': apiary.managementType,
         }
@@ -292,7 +299,12 @@ class ApiaryService:
             self.db.refresh(apiary)
         except Exception:
             self.db.rollback()
+            if uploaded_image:
+                self.blob_storage.delete_image(uploaded_image)
             raise
+
+        if uploaded_image and old_image != uploaded_image:
+            self.blob_storage.delete_image(old_image)
         
         # Create a temporary old_apiary object for history logging
         old_apiary = SimpleNamespace(**old_values, id=apiary.id, userId=apiary.userId)
@@ -302,7 +314,18 @@ class ApiaryService:
         return apiary
     
     def get_all_history(self, apiary_id: int) -> List[History]:
-        return self.db.query(History).filter(History.apiaryId == apiary_id).all()
+        from app.models.user import User
+        results = (
+            self.db.query(History, User.name, User.surname)
+            .join(User, History.userId == User.id, isouter=True)
+            .filter(History.apiaryId == apiary_id)
+            .all()
+        )
+        history_list = []
+        for history, user_name, user_surname in results:
+            history.userName = f"{user_name} {user_surname}".strip() if user_name else None
+            history_list.append(history)
+        return history_list
     
     def count_apiaries_by_user_id(self, user_id: int) -> int:
         return self.db.query(Apiary).filter(Apiary.userId == user_id).count()

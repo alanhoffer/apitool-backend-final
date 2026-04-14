@@ -96,7 +96,7 @@ def normalize_path(path: str) -> str:
         (r'/notifications/\d+', '/notifications/{id}'),
         (r'/apiarys/\d+/history', '/apiarys/{id}/history'),
         (r'/apiarys/\d+/harvested', '/apiarys/{id}/harvested'),
-        (r'/profile/image/[^/]+', '/profile/image/{id}'),
+        (r'/profile/image/.+', '/profile/image/{id}'),
     ]
     
     normalized = path

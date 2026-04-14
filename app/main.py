@@ -2,9 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routers import (
-    auth_router, user_router, apiary_router, news_router, 
+    auth_router, user_router, apiary_router, news_router,
     weather_router, recommendations_router, notification_router, drum_router,
-    hive_router, task_router,
+    hive_router, task_router, subscription_router,
 )
 from app.routers.audio import router as audio_router
 from app.routers.health import router as health_router
@@ -17,6 +17,7 @@ from app.middleware.request_size import RequestSizeMiddleware
 from app.database import engine, Base
 from app.cron import scheduler
 from app.config import settings
+from app.runtime import should_run_scheduler
 from app.utils.logging_config import setup_logging
 import os
 import logging
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Unexpected error creating database tables: {e}")
         
-        if not scheduler.running:
+        if should_run_scheduler() and not scheduler.running:
             scheduler.start()
     yield
     # Shutdown
@@ -86,7 +87,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_credentials=settings.cors_origins_list != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -105,6 +106,7 @@ app.include_router(drum_router)
 app.include_router(hive_router)
 app.include_router(task_router)
 app.include_router(audio_router)
+app.include_router(subscription_router)
 
 # Import cache router after other routers
 from app.routers.cache import router as cache_router

@@ -66,6 +66,57 @@ Los reportes de cobertura se generan en `htmlcov/index.html`
 - Swagger UI: `http://localhost:3000/docs`
 - ReDoc: `http://localhost:3000/redoc`
 
+## Deploy en Vercel
+
+El repo incluye `vercel.json` y `api/index.py` para exponer la app FastAPI en Vercel.
+
+Si tu proyecto de Vercel ya esta conectado a GitHub, el flujo normal es:
+
+1. Hacer commit de los cambios que quieras publicar
+2. Ejecutar `git push origin main`
+3. Esperar el deploy automatico de Vercel
+
+Si el proyecto no esta conectado al repo, podes desplegar manualmente con CLI:
+
+```bash
+vercel
+vercel --prod
+```
+
+Variables minimas recomendadas en Vercel:
+
+- `APP_ENV=production`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `JWT_SECRET`
+- `CORS_ORIGINS`
+- `BASE_URL`
+- `WEATHER_API_KEY` si usas `/weather`
+- `OPENAI_API_KEY` si usas audio/IA
+- `ENABLE_SCHEDULER=false`
+- `BLOB_READ_WRITE_TOKEN`
+
+Para imagenes de apiarios con Vercel Blob:
+
+1. Crear un Blob store publico desde el proyecto
+2. Verificar que Vercel agregue `BLOB_READ_WRITE_TOKEN`
+3. Redeployar
+4. Si ya tenes imagenes locales previas, migrarlas con:
+
+```bash
+python scripts/migrate_apiary_images_to_blob.py
+```
+
+Las imagenes nuevas se guardan en Vercel Blob bajo `apiarys/...` y el endpoint legado `/apiarys/profile/image/...` redirige a la URL publica del blob.
+
+Importante:
+
+- En Vercel no conviene correr el scheduler interno de APScheduler; por eso debe quedar en `false`.
+- `uploads/` no es persistente en Vercel. Si no hay `BLOB_READ_WRITE_TOKEN`, la API cae en almacenamiento local solo para desarrollo/testing.
+
 ## Endpoints principales
 
 - `/auth/login`
