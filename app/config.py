@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     environment: str = Field(default_factory=_environment_name, description="Current runtime environment")
 
     # Database
+    database_url: str | None = Field(default=None, description="Full database connection URL")
     db_host: str = Field(default="localhost", description="Database host")
     db_port: int = Field(default=5432, description="Database port")
     db_user: str = Field(default="postgres", description="Database user")
@@ -71,6 +72,15 @@ class Settings(BaseSettings):
         return self.environment == "development"
 
     @property
+    def effective_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        postgres_url = os.getenv("POSTGRES_URL")
+        if postgres_url:
+            return postgres_url
+        return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+
+    @property
     def effective_jwt_secret(self) -> str:
         if self.jwt_secret:
             return self.jwt_secret
@@ -84,7 +94,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-if settings.db_password == "change-me" and not settings.is_testing:
+if settings.db_password == "change-me" and not settings.is_testing and not settings.database_url and not os.getenv("POSTGRES_URL"):
     warnings.warn(
         "DB_PASSWORD is using the placeholder value 'change-me'. Configure real database credentials in .env.",
         UserWarning
