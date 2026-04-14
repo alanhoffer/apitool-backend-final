@@ -12,6 +12,12 @@ def _environment_name() -> str:
     return os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or ("testing" if _is_testing() else "development")
 
 
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://"):]
+    return url
+
+
 class Settings(BaseSettings):
     environment: str = Field(default_factory=_environment_name, description="Current runtime environment")
 
@@ -74,10 +80,10 @@ class Settings(BaseSettings):
     @property
     def effective_database_url(self) -> str:
         if self.database_url:
-            return self.database_url
+            return _normalize_database_url(self.database_url)
         postgres_url = os.getenv("POSTGRES_URL")
         if postgres_url:
-            return postgres_url
+            return _normalize_database_url(postgres_url)
         return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @property
