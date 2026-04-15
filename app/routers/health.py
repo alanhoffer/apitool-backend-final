@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from app.config import settings
 from app.database import get_db
 from typing import Dict, Any
 import logging
@@ -21,7 +22,9 @@ async def health_check() -> Dict[str, str]:
     """
     return {
         "status": "healthy",
-        "service": "apitool-api"
+        "service": "apitool-api",
+        "version": settings.app_version,
+        "release": settings.release_identifier,
     }
 
 @router.get("/ready")
@@ -36,7 +39,9 @@ async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
         db.execute(text("SELECT 1"))
         return {
             "status": "ready",
-            "database": "connected"
+            "database": "connected",
+            "version": settings.app_version,
+            "release": settings.release_identifier,
         }
     except Exception:
         logger.exception("Database connection failed during readiness check")
@@ -44,7 +49,9 @@ async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "not_ready",
-                "database": "disconnected"
+                "database": "disconnected",
+                "version": settings.app_version,
+                "release": settings.release_identifier,
             }
         )
 
@@ -55,7 +62,9 @@ async def liveness_check() -> Dict[str, str]:
     Returns 200 if the service is alive.
     """
     return {
-        "status": "alive"
+        "status": "alive",
+        "version": settings.app_version,
+        "release": settings.release_identifier,
     }
 
 

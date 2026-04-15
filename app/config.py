@@ -20,6 +20,7 @@ def _normalize_database_url(url: str) -> str:
 
 class Settings(BaseSettings):
     environment: str = Field(default_factory=_environment_name, description="Current runtime environment")
+    app_version: str = Field(default="0.0.1", description="Application version identifier")
 
     # Database
     database_url: str | None = Field(default=None, description="Full database connection URL")
@@ -89,6 +90,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "environment",
+        "app_version",
         "database_url",
         "db_host",
         "db_user",
@@ -121,6 +123,17 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
+
+    @property
+    def release_identifier(self) -> str:
+        commit_sha = (
+            os.getenv("VERCEL_GIT_COMMIT_SHA")
+            or os.getenv("GIT_COMMIT_SHA")
+            or os.getenv("COMMIT_SHA")
+        )
+        if commit_sha:
+            return commit_sha[:7]
+        return self.app_version
 
     @property
     def effective_database_url(self) -> str:

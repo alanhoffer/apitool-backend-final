@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.database import get_db
 from app.main import app
 
@@ -24,4 +25,29 @@ def test_readiness_check_returns_503_without_internal_error():
     assert response.json() == {
         "status": "not_ready",
         "database": "disconnected",
+        "version": settings.app_version,
+        "release": settings.release_identifier,
+    }
+
+
+def test_health_check_includes_version_metadata(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "healthy",
+        "service": "apitool-api",
+        "version": settings.app_version,
+        "release": settings.release_identifier,
+    }
+
+
+def test_liveness_check_includes_version_metadata(client):
+    response = client.get("/health/live")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "alive",
+        "version": settings.app_version,
+        "release": settings.release_identifier,
     }
