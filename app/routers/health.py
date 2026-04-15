@@ -1,7 +1,8 @@
 """
 Health check endpoints for monitoring and load balancers.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import get_db
@@ -37,13 +38,15 @@ async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "status": "ready",
             "database": "connected"
         }
-    except Exception as e:
-        logger.error(f"Database connection failed: {e}")
-        return {
-            "status": "not_ready",
-            "database": "disconnected",
-            "error": str(e)
-        }
+    except Exception:
+        logger.exception("Database connection failed during readiness check")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "not_ready",
+                "database": "disconnected"
+            }
+        )
 
 @router.get("/live")
 async def liveness_check() -> Dict[str, str]:
@@ -54,49 +57,5 @@ async def liveness_check() -> Dict[str, str]:
     return {
         "status": "alive"
     }
-
-@router.post("/setup-fede-user-internal-temp")
-async def setup_fede_user(db: Session = Depends(get_db)):
-    """
-    TEMPORARY ENDPOINT to create Fede Guzman's account.
-    To be removed immediately after use.
-    """
-    from passlib.context import CryptContext
-    from app.models.user import User, Role
-    
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    
-    email = "fedeguzman_vet@hotmail.com"
-    password = "15533786"
-    name = "Fede"
-    surname = "Guzman"
-    
-    # Check if exists
-    existing = db.query(User).filter(User.email == email).first()
-    if existing:
-        return {"message": f"User {email} already exists", "user_id": existing.id}
-    
-    hashed_password = pwd_context.hash(password)
-    
-    new_user = User(
-        name=name,
-        surname=surname,
-        email=email,
-        password=hashed_password,
-        role=Role.APICULTOR
-    )
-    
-    db.add(new_user)
-    try:
-        db.commit()
-        db.refresh(new_user)
-        return {
-            "message": "User created successfully",
-            "email": email,
-            "id": new_user.id
-        }
-    except Exception as e:
-        db.rollback()
-        return {"error": str(e)}
 
 

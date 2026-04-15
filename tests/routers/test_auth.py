@@ -91,3 +91,23 @@ def test_logout(client, auth_headers):
     
     assert response.status_code == 200
 
+def test_forgot_password_disabled(client, test_user):
+    """Password reset endpoints should be disabled until configured."""
+    response = client.post(
+        "/auth/forgot-password",
+        json={"email": test_user.email}
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Password reset is not available"
+
+def test_reset_password_disabled(client):
+    """Password reset completion should be disabled until configured."""
+    response = client.post(
+        "/auth/reset-password",
+        json={"token": "invalid-token", "newPassword": "newpassword123"}
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Password reset is not available"
+

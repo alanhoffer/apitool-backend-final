@@ -1,4 +1,4 @@
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 import os
 import warnings
@@ -38,7 +38,17 @@ class Settings(BaseSettings):
         description="JWT secret key. Required outside testing unless you explicitly accept insecure development defaults."
     )
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
-    jwt_expiration_days: int = Field(default=365, description="JWT expiration in days")
+    jwt_expiration_days: int = Field(default=30, description="JWT expiration in days")
+
+    # Password reset
+    password_reset_enabled: bool = Field(
+        default=False,
+        description="Enable password reset endpoints only when a real delivery flow exists"
+    )
+    password_reset_token_ttl_minutes: int = Field(
+        default=60,
+        description="Password reset token expiration in minutes"
+    )
 
     # Bcrypt
     bcrypt_salt_rounds: int = Field(default=10, description="Bcrypt salt rounds")
@@ -58,10 +68,45 @@ class Settings(BaseSettings):
     # IA / Audio
     openai_api_key: str | None = Field(default=None, description="OpenAI API key para transcripcion y chat")
 
+    # Rate limiting
+    rate_limit_enabled: bool = Field(default=True, description="Enable in-process rate limiting middleware")
+    rate_limit_trust_proxy_headers: bool = Field(
+        default=True,
+        description="Trust proxy headers such as X-Forwarded-For to identify clients"
+    )
+    rate_limit_default_requests: int = Field(default=100, description="Default requests per window")
+    rate_limit_default_window_seconds: int = Field(default=60, description="Default rate limit window in seconds")
+    rate_limit_auth_requests: int = Field(default=10, description="Requests per auth prefix per window")
+    rate_limit_auth_window_seconds: int = Field(default=60, description="Rate limit window for auth endpoints")
+    rate_limit_login_requests: int = Field(default=5, description="Login requests per window")
+    rate_limit_register_requests: int = Field(default=3, description="Register requests per window")
+    rate_limit_forgot_password_requests: int = Field(default=3, description="Forgot password requests per window")
+
     model_config = ConfigDict(
         env_file=".env",
         extra="ignore"
     )
+
+    @field_validator(
+        "environment",
+        "database_url",
+        "db_host",
+        "db_user",
+        "db_password",
+        "db_name",
+        "weather_api_key",
+        "jwt_secret",
+        "jwt_algorithm",
+        "cors_origins",
+        "base_url",
+        "openai_api_key",
+        mode="before",
+    )
+    @classmethod
+    def strip_string_fields(cls, value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -83,7 +128,7 @@ class Settings(BaseSettings):
             return _normalize_database_url(self.database_url)
         postgres_url = os.getenv("POSTGRES_URL")
         if postgres_url:
-            return _normalize_database_url(postgres_url)
+            return _normalize_database_url(postgres_url.strip())
         return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @property
@@ -123,3 +168,15 @@ if not settings.jwt_secret:
             "JWT_SECRET is not configured. The API will refuse to start auth-dependent paths until you define it.",
             UserWarning
         )
+
+if settings.environment in {"production", "staging"} and settings.cors_origins == "*":
+    warnings.warn(
+        "CORS_ORIGINS is set to '*' outside development/testing. Restrict it to known frontend origins.",
+        UserWarning
+    )
+
+if settings.jwt_expiration_days > 90:
+    warnings.warn(
+        "JWT_EXPIRATION_DAYS is greater than 90 days. Consider reducing token lifetime for production.",
+        UserWarning
+    )

@@ -74,7 +74,7 @@ app.add_middleware(RequestSizeMiddleware)
 
 # Rate limiting middleware (debe ir antes de otros middlewares)
 # Deshabilitar en modo testing para evitar bloqueos en tests
-if os.getenv("TESTING") != "1":
+if os.getenv("TESTING") != "1" and settings.rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware)
 
 # Metrics middleware
