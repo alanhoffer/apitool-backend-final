@@ -32,7 +32,6 @@ class CreateApiary(BaseModel):
     tAmitraz: Optional[int] = Field(None, ge=0, description="Amitraz treatment days (must be >= 0)")
     tFlumetrine: Optional[int] = Field(None, ge=0, description="Flumetrine treatment days (must be >= 0)")
     tFence: Optional[int] = Field(None, ge=0, description="Fence treatment days (must be >= 0)")
-    tComment: Optional[str] = Field(None, max_length=1000, description="Treatment comment")
     transhumance: Optional[int] = Field(None, ge=0, description="Transhumance days (must be >= 0)")
     latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude coordinate")
     longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude coordinate")
@@ -53,7 +52,6 @@ class UpdateApiary(BaseModel):
     tAmitraz: Optional[int] = Field(None, ge=0, description="Amitraz treatment days (must be >= 0)")
     tFlumetrine: Optional[int] = Field(None, ge=0, description="Flumetrine treatment days (must be >= 0)")
     tFence: Optional[int] = Field(None, ge=0, description="Fence treatment days (must be >= 0)")
-    tComment: Optional[str] = Field(None, max_length=1000, description="Treatment comment")
     transhumance: Optional[int] = Field(None, ge=0, description="Transhumance days (must be >= 0)")
     latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude coordinate")
     longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude coordinate")
@@ -70,6 +68,7 @@ class ApiaryResponse(BaseModel):
     hives: int = Field(alias="_hives")
     status: str = Field(alias="_status")
     image: str = Field(alias="_image")
+    imageUrl: Optional[str] = Field(default=None, alias="_imageUrl")
     honey: Decimal = Field(alias="_honey")
     levudex: Decimal = Field(alias="_levudex")
     sugar: Decimal = Field(alias="_sugar")
@@ -80,7 +79,6 @@ class ApiaryResponse(BaseModel):
     tAmitraz: int = Field(alias="_tAmitraz")
     tFlumetrine: int = Field(alias="_tFlumetrine")
     tFence: int = Field(alias="_tFence")
-    tComment: str = Field(alias="_tComment")
     transhumance: Optional[int] = Field(default=None, alias="_transhumance")
     managementType: str = Field(default="apiary", alias="_managementType")
     settings: Optional['SettingsResponse'] = Field(default=None, alias="_settings")
@@ -91,6 +89,7 @@ class ApiaryDetail(BaseModel):
     name: str
     userId: int
     image: str
+    imageUrl: Optional[str] = None
     hives: int
     status: str
     honey: Optional[Decimal] = None
@@ -103,14 +102,14 @@ class ApiaryDetail(BaseModel):
     tAmitraz: int
     tFlumetrine: int
     tFence: int
-    tComment: str
     transhumance: Optional[int] = None
     managementType: str = "apiary"
     latitude: Optional[Decimal] = None
     longitude: Optional[Decimal] = None
     createdAt: datetime
     updatedAt: datetime
-    
+    settings: Optional['SettingsResponse'] = None
+
     class Config:
         from_attributes = True
 
@@ -131,6 +130,35 @@ class HarvestedTodayCounts(BaseModel):
     apiaryCount: int
     hiveCount: int
 
+class HarvestSeasonResponse(BaseModel):
+    """Resumen de una temporada de cosecha."""
+    id: int
+    name: str
+    status: str
+    startedAt: datetime
+    endedAt: Optional[datetime] = None
+    createdAt: datetime
+    updatedAt: datetime
+    box: int
+    boxMedium: int
+    boxSmall: int
+    total: int
+    apiaryCount: int
+    hiveCount: int
+    isActive: bool
+
+class HarvestSeasonApiaryTotalResponse(BaseModel):
+    """Totales archivados por apiario dentro de una temporada."""
+    id: int
+    seasonId: int
+    apiaryId: Optional[int] = None
+    apiaryName: Optional[str] = None
+    hives: int
+    box: int
+    boxMedium: int
+    boxSmall: int
+    total: int
+
 # Resolver forward references para Pydantic v2
 # Esto debe ejecutarse después de que todos los módulos estén cargados
 def _resolve_forward_refs():
@@ -140,6 +168,7 @@ def _resolve_forward_refs():
         from app.schemas import settings
         # Reconstruir el modelo para resolver las referencias forward
         ApiaryResponse.model_rebuild()
+        ApiaryDetail.model_rebuild()
     except (ImportError, AttributeError):
         # Si hay un error, se intentará resolver más tarde cuando se importe el módulo
         pass

@@ -25,6 +25,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-15441109Gordo.}
       - DB_NAME=${DB_NAME:-apitool1}
       - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRATION_DAYS=${JWT_EXPIRATION_DAYS:-365}
     depends_on:
       - db
     volumes:

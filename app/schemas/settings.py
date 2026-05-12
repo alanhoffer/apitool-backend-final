@@ -12,9 +12,8 @@ class CreateSettings(BaseModel):
     tAmitraz: bool = True
     tFlumetrine: bool = True
     tFence: bool = True
-    tComment: bool = True
     transhumance: bool = True
-    harvesting: bool = False
+    tasks: bool = False
     queenStatus: bool = False
     population: bool = False
     broodFrames: bool = False
@@ -39,9 +38,7 @@ class UpdateSettings(BaseModel):
     tAmitraz: Optional[bool] = None
     tFlumetrine: Optional[bool] = None
     tFence: Optional[bool] = None
-    tComment: Optional[bool] = None
     transhumance: Optional[bool] = None
-    harvesting: Optional[bool] = None
     queenStatus: Optional[bool] = None
     population: Optional[bool] = None
     broodFrames: Optional[bool] = None
@@ -52,7 +49,7 @@ class UpdateSettings(BaseModel):
     swarming: Optional[bool] = None
     disease: Optional[bool] = None
     production: Optional[bool] = None
-    tasks: Optional[str] = None
+    tasks: Optional[bool] = None
 
 class SettingsResponse(BaseModel):
     id: int
@@ -68,9 +65,7 @@ class SettingsResponse(BaseModel):
     tAmitraz: bool
     tFlumetrine: bool
     tFence: bool
-    tComment: bool
     transhumance: bool
-    harvesting: bool
     queenStatus: bool
     population: bool
     broodFrames: bool
@@ -81,7 +76,7 @@ class SettingsResponse(BaseModel):
     swarming: bool
     disease: bool
     production: bool
-    tasks: Optional[str] = None
-    
+    tasks: bool = False
+
     class Config:
         from_attributes = True

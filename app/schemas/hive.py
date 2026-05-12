@@ -3,6 +3,8 @@ from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
 
+from app.schemas.insights import HiveHealthSummaryResponse
+
 
 class HiveBase(BaseModel):
     apiaryId: int = Field(..., gt=0)
@@ -66,6 +68,7 @@ class HiveResponse(HiveBase):
     userId: int
     createdAt: datetime
     updatedAt: datetime
+    healthSummary: Optional[HiveHealthSummaryResponse] = None
 
     class Config:
         from_attributes = True

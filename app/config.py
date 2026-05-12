@@ -12,6 +12,20 @@ def _environment_name() -> str:
     return os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or ("testing" if _is_testing() else "development")
 
 
+def _default_cors_origins() -> str:
+    if _environment_name() in {"development", "testing"}:
+        return ",".join(
+            [
+                "http://localhost",
+                "http://localhost:3000",
+                "http://127.0.0.1",
+                "http://127.0.0.1:3000",
+                "http://testserver",
+            ]
+        )
+    return ""
+
+
 def _normalize_database_url(url: str) -> str:
     if url.startswith("postgres://"):
         return "postgresql://" + url[len("postgres://"):]
@@ -29,6 +43,7 @@ class Settings(BaseSettings):
     db_user: str = Field(default="postgres", description="Database user")
     db_password: str = Field(default="change-me", description="Database password")
     db_name: str = Field(default="apitool1", description="Database name")
+    db_schema: str | None = Field(default=None, description="Optional PostgreSQL schema/search_path for the app")
 
     # Weather API
     weather_api_key: str | None = Field(default=None, description="Weather API key")
@@ -56,8 +71,8 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = Field(
-        default="*",
-        description="CORS allowed origins (comma-separated, use * only for local development)"
+        default_factory=_default_cors_origins,
+        description="CORS allowed origins (comma-separated, use * only when you intentionally want wide-open local development)"
     )
 
     # Base URL
@@ -72,8 +87,12 @@ class Settings(BaseSettings):
     # Rate limiting
     rate_limit_enabled: bool = Field(default=True, description="Enable in-process rate limiting middleware")
     rate_limit_trust_proxy_headers: bool = Field(
-        default=True,
-        description="Trust proxy headers such as X-Forwarded-For to identify clients"
+        default=False,
+        description="Trust proxy headers such as X-Forwarded-For only when traffic is guaranteed to come through trusted proxies"
+    )
+    rate_limit_trusted_proxies: str = Field(
+        default="",
+        description="Trusted proxy IPs or CIDR ranges allowed to supply forwarded client IP headers (comma-separated)"
     )
     rate_limit_default_requests: int = Field(default=100, description="Default requests per window")
     rate_limit_default_window_seconds: int = Field(default=60, description="Default rate limit window in seconds")
@@ -96,12 +115,14 @@ class Settings(BaseSettings):
         "db_user",
         "db_password",
         "db_name",
+        "db_schema",
         "weather_api_key",
         "jwt_secret",
         "jwt_algorithm",
         "cors_origins",
         "base_url",
         "openai_api_key",
+        "rate_limit_trusted_proxies",
         mode="before",
     )
     @classmethod
@@ -113,8 +134,14 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         if self.cors_origins == "*":
+            if self.environment in {"production", "staging"}:
+                return []
             return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def rate_limit_trusted_proxies_list(self) -> list[str]:
+        return [proxy.strip() for proxy in self.rate_limit_trusted_proxies.split(",") if proxy.strip()]
 
     @property
     def is_testing(self) -> bool:

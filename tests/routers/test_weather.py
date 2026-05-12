@@ -12,12 +12,15 @@ def test_get_weather_success(client):
         mock_response = Mock()
         mock_response.json.return_value = mock_weather_data
         mock_response.raise_for_status = Mock()
-        mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+        mock_get = AsyncMock(return_value=mock_response)
+        mock_client.return_value.__aenter__.return_value.get = mock_get
         
         response = client.get("/weather?lat=40.7128&lon=-74.0060")
         
         assert response.status_code == 200
         assert response.json() == mock_weather_data
+        requested_url = mock_get.await_args.args[0]
+        assert requested_url.startswith("https://")
 
 def test_get_weather_missing_params(client):
     """Test getting weather without parameters."""

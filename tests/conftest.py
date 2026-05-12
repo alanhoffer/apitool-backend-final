@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.database import Base, get_db
 from app.main import app
 from app.models import User, Apiary, Settings, History, News, Drum, Hive, HiveHistory
+from app.models.subscription import Subscription
 from app.models.user import Role
 
 # Use in-memory SQLite for testing
@@ -85,6 +86,27 @@ def test_admin(db):
 @pytest.fixture
 def auth_headers(client, test_user):
     """Get authentication headers for test user."""
+    response = client.post(
+        "/auth/login",
+        json={"email": "test@example.com", "password": "password123"}
+    )
+    assert response.status_code == 200, f"Login failed: {response.status_code} - {response.text}"
+    data = response.json()
+    assert "access_token" in data, f"Missing access_token in response: {data}"
+    token = data["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def ai_auth_headers(client, db, test_user):
+    """Get authentication headers for a user with AI access enabled."""
+    subscription = Subscription(
+        userId=test_user.id,
+        tier="apicultor",
+        status="active",
+    )
+    db.add(subscription)
+    db.commit()
+
     response = client.post(
         "/auth/login",
         json={"email": "test@example.com", "password": "password123"}

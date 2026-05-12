@@ -19,7 +19,13 @@ async def create_task(
 ):
     """Crea una nueva tarea."""
     service = TaskService(db)
-    return service.create_task(current_user.id, task_data)
+    task = service.create_task(current_user.id, task_data)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Apiario no encontrado"
+        )
+    return task
 
 @router.get("", response_model=TasksListResponse)
 async def get_tasks(

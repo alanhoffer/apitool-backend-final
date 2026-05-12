@@ -52,8 +52,8 @@ def import_apiaries():
 
                 # Insertar Settings
                 ins_settings = text("""
-                    INSERT INTO apiary_setting ("apiaryId", "apiaryUserId", honey, levudex, sugar, box, "boxMedium", "boxSmall", "tOxalic", "tAmitraz", "tFlumetrine", "tFence", "tComment", transhumance, harvesting)
-                    VALUES (:aid, :uid, true, true, true, true, true, true, true, true, true, true, true, true, false)
+                    INSERT INTO apiary_setting ("apiaryId", "apiaryUserId", honey, levudex, sugar, box, "boxMedium", "boxSmall", "tOxalic", "tAmitraz", "tFlumetrine", "tFence", "tComment", transhumance)
+                    VALUES (:aid, :uid, true, true, true, true, true, true, true, true, true, true, true, true)
                 """)
                 conn.execute(ins_settings, {"aid": apiary_id, "uid": user_id})
                 

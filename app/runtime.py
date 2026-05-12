@@ -17,6 +17,17 @@ def should_run_scheduler() -> bool:
     return os.getenv("ENABLE_SCHEDULER", "true").lower() == "true" and not is_serverless()
 
 
+def should_run_startup_schema_sync() -> bool:
+    if os.getenv("TESTING") == "1":
+        return False
+
+    override = os.getenv("RUN_STARTUP_SCHEMA_SYNC")
+    if override is not None:
+        return override.lower() == "true"
+
+    return not is_serverless()
+
+
 def get_upload_dir() -> Path:
     configured_path = os.getenv("UPLOAD_DIR")
     if configured_path:

@@ -284,7 +284,6 @@ def test_statistics_endpoints(db: Session, user_id: int):
     
     endpoints = [
         ("get_box_stats", lambda: apiary_service.get_box_stats(user_id)),
-        ("count_harvesting_apiaries", lambda: apiary_service.count_harvesting_apiaries(user_id)),
         ("count_harvested_apiaries", lambda: apiary_service.count_harvested_apiaries(user_id)),
         ("count_hives_in_harvested_apiaries", lambda: apiary_service.count_hives_in_harvested_apiaries(user_id)),
         ("count_harvested_today_apiaries_and_hives", lambda: apiary_service.count_harvested_today_apiaries_and_hives(user_id)),

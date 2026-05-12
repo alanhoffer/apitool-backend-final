@@ -15,7 +15,7 @@ class WeatherService:
                 detail="Weather service is not configured"
             )
 
-        url = f"http://api.weatherapi.com/v1/current.json?key={self.api_key}&q={lat},{lon}&aqi=no"
+        url = f"https://api.weatherapi.com/v1/current.json?key={self.api_key}&q={lat},{lon}&aqi=no"
         
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:

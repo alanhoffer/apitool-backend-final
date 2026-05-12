@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.apiary import Apiary
 from app.models.hive import Hive
 from app.schemas.hive import HiveCreate, HiveUpdate
+from app.services.health_service import build_hive_health_summary
 from app.services.hive_history_service import HiveHistoryService
 
 
@@ -37,6 +38,7 @@ class HiveService:
         self._sync_apiary_hive_count(hive.apiaryId)
         self.db.commit()
         self.db.refresh(hive)
+        self._attach_health_summary(hive)
         self.history_service.log_changes(
             self.history_service.build_empty_hive(hive),
             hive,
@@ -47,12 +49,18 @@ class HiveService:
         query = self.db.query(Hive).filter(Hive.userId == user_id)
         if apiary_id is not None:
             query = query.filter(Hive.apiaryId == apiary_id)
-        return query.order_by(Hive.updatedAt.desc(), Hive.id.desc()).all()
+        hives = query.order_by(Hive.updatedAt.desc(), Hive.id.desc()).all()
+        for hive in hives:
+            self._attach_health_summary(hive)
+        return hives
 
     def get_hive_by_id(self, hive_id: int, user_id: int) -> Optional[Hive]:
-        return self.db.query(Hive).filter(
+        hive = self.db.query(Hive).filter(
             and_(Hive.id == hive_id, Hive.userId == user_id)
         ).first()
+        if hive:
+            self._attach_health_summary(hive)
+        return hive
 
     def update_hive(self, hive_id: int, user_id: int, updates: HiveUpdate) -> Optional[Hive]:
         hive = self.get_hive_by_id(hive_id, user_id)
@@ -69,6 +77,7 @@ class HiveService:
 
         self.db.commit()
         self.db.refresh(hive)
+        self._attach_health_summary(hive)
         self.history_service.log_changes(
             type("OldHive", (), {**old_values, "id": hive.id, "apiaryId": hive.apiaryId, "userId": hive.userId})(),
             hive,
@@ -90,3 +99,6 @@ class HiveService:
 
     def get_hive_history(self, hive_id: int, user_id: int):
         return self.history_service.get_hive_history(hive_id, user_id)
+
+    def _attach_health_summary(self, hive: Hive) -> None:
+        hive.healthSummary = build_hive_health_summary(hive)

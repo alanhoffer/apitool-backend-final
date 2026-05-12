@@ -1,6 +1,8 @@
 import mimetypes
 from pathlib import Path
 
+import app.models  # noqa: F401
+import app.models.subscription  # noqa: F401
 from app.database import SessionLocal
 from app.models.apiary import Apiary
 from app.services.blob_storage_service import (

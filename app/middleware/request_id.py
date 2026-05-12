@@ -8,6 +8,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from typing import Callable
 import logging
+from app.utils.logging_config import set_request_id, reset_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -23,25 +24,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Agregar al estado de la request para acceso en la app
         request.state.request_id = request_id
         
-        # Agregar contexto al logger
-        old_factory = logging.getLogRecordFactory()
-        
-        def record_factory(*args, **kwargs):
-            record = old_factory(*args, **kwargs)
-            record.request_id = request_id
-            return record
-        
-        logging.setLogRecordFactory(record_factory)
-        
+        token = set_request_id(request_id)
         try:
             response = await call_next(request)
-            
             # Agregar Request ID al header de respuesta
             response.headers["X-Request-ID"] = request_id
-            
             return response
         finally:
-            # Restaurar factory original
-            logging.setLogRecordFactory(old_factory)
+            reset_request_id(token)
 
 

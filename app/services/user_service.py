@@ -49,6 +49,16 @@ class UserService:
             raise
         return True
 
+    def validate_delete_account(self, user: User, current_password: str, auth_service) -> None:
+        """
+        Verifica que la solicitud de eliminación esté autenticada correctamente.
+        """
+        if not auth_service.verify_password(current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+
     def update_push_token(self, user_id: int, token: str) -> bool:
         """
         Método legacy: Actualiza el token en el campo expoPushToken del usuario.
@@ -309,4 +319,3 @@ class UserService:
         except Exception:
             self.db.rollback()
             raise
-

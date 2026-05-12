@@ -12,10 +12,18 @@ from decimal import Decimal
 from fastapi import UploadFile, HTTPException, status
 import uuid
 import magic
-from PIL import Image
+from PIL import Image, ImageOps, UnidentifiedImageError
 import io
 from types import SimpleNamespace
 from app.services.blob_storage_service import BlobStorageService, DEFAULT_APIARY_IMAGE
+from app.utils.helpers import build_settings_response
+
+MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_PIXELS = 16_000_000
+MAX_IMAGE_DIMENSION = 6_000
+MAX_PROFILE_IMAGE_DIMENSION = 768
+PROFILE_IMAGE_JPEG_QUALITY = 82
+
 
 class ApiaryService:
     def __init__(self, db: Session):
@@ -34,54 +42,25 @@ class ApiaryService:
         
         result = []
         for apiary in apiaries:
-            from app.schemas.settings import SettingsResponse
-            settings_response = None
-            if apiary.settings:
-                settings_response = SettingsResponse(
-                    id=apiary.settings.id,
-                    apiaryId=apiary.settings.apiaryId,
-                    apiaryUserId=apiary.settings.apiaryUserId,
-                    honey=apiary.settings.honey,
-                    levudex=apiary.settings.levudex,
-                    sugar=apiary.settings.sugar,
-                    box=apiary.settings.box,
-                    boxMedium=apiary.settings.boxMedium,
-                    boxSmall=apiary.settings.boxSmall,
-                    tOxalic=apiary.settings.tOxalic,
-                    tAmitraz=apiary.settings.tAmitraz,
-                    tFlumetrine=apiary.settings.tFlumetrine,
-                    tFence=apiary.settings.tFence,
-                    transhumance=apiary.settings.transhumance,
-                    harvesting=apiary.settings.harvesting,
-                    queenStatus=apiary.settings.queenStatus,
-                    population=apiary.settings.population,
-                    broodFrames=apiary.settings.broodFrames,
-                    honeyFrames=apiary.settings.honeyFrames,
-                    pollenFrames=apiary.settings.pollenFrames,
-                    lastInspection=apiary.settings.lastInspection,
-                    hiveStrength=apiary.settings.hiveStrength,
-                    swarming=apiary.settings.swarming,
-                    disease=apiary.settings.disease,
-                    production=apiary.settings.production,
-                    tasks=apiary.settings.tasks
-                )
+            settings_response = build_settings_response(apiary.settings)
             
             apiary_dto = ApiaryResponse(
                 _id=apiary.id,
-                _name=apiary.name,
-                _hives=apiary.hives,
-                _status=apiary.status,
+                _name=apiary.name or "",
+                _hives=apiary.hives or 0,
+                _status=apiary.status or "normal",
                 _image=apiary.image,
+                _imageUrl=self.blob_storage.resolve_public_url(apiary.image),
                 _honey=apiary.honey or Decimal(0),
                 _levudex=apiary.levudex or Decimal(0),
                 _sugar=apiary.sugar or Decimal(0),
-                _box=apiary.box,
-                _boxMedium=apiary.boxMedium,
-                _boxSmall=apiary.boxSmall,
-                _tOxalic=apiary.tOxalic,
-                _tAmitraz=apiary.tAmitraz,
-                _tFlumetrine=apiary.tFlumetrine,
-                _tFence=apiary.tFence,
+                _box=apiary.box or 0,
+                _boxMedium=apiary.boxMedium or 0,
+                _boxSmall=apiary.boxSmall or 0,
+                _tOxalic=apiary.tOxalic or 0,
+                _tAmitraz=apiary.tAmitraz or 0,
+                _tFlumetrine=apiary.tFlumetrine or 0,
+                _tFence=apiary.tFence or 0,
                 _transhumance=apiary.transhumance,
                 _managementType=apiary.managementType or "apiary",
                 _settings=settings_response,
@@ -102,17 +81,14 @@ class ApiaryService:
         Valida, redimensiona y guarda una imagen optimizada.
         Retorna el nombre del archivo guardado.
         """
-        # 1. Validar tamaño máximo (10MB)
-        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-        
-        # Leer contenido completo
-        content = await file.read()
+        # Leer como maximo el limite + 1 byte para detectar exceso sin cargar de mas.
+        content = await file.read(MAX_IMAGE_UPLOAD_BYTES + 1)
         file_size = len(content)
         
-        if file_size > MAX_FILE_SIZE:
+        if file_size > MAX_IMAGE_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024*1024):.0f}MB"
+                detail=f"File too large. Maximum size is {MAX_IMAGE_UPLOAD_BYTES / (1024*1024):.0f}MB"
             )
         
         if file_size == 0:
@@ -123,7 +99,7 @@ class ApiaryService:
         
         # 2. Validar tipo real (Magic numbers)
         # magic.from_buffer lee los bytes iniciales para detectar el tipo real
-        mime = magic.from_buffer(content, mime=True)
+        mime = magic.from_buffer(content[:4096], mime=True)
         if mime not in ["image/jpeg", "image/png", "image/gif", "image/webp"]:
              raise HTTPException(
                  status_code=status.HTTP_400_BAD_REQUEST, 
@@ -131,16 +107,40 @@ class ApiaryService:
              )
         
         try:
-            # 3. Procesar con Pillow
+            # 3. Validar y procesar con Pillow.
             image = Image.open(io.BytesIO(content))
+            width, height = image.size
+            if (
+                width <= 0
+                or height <= 0
+                or width * height > MAX_IMAGE_PIXELS
+                or width > MAX_IMAGE_DIMENSION
+                or height > MAX_IMAGE_DIMENSION
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Image dimensions are too large"
+                )
+
+            image.verify()
+            image = Image.open(io.BytesIO(content))
+            image = ImageOps.exif_transpose(image)
             
-            # Convertir a RGB si tiene transparencia (para guardar como JPEG)
-            if image.mode in ("RGBA", "P"):
+            # Convertir a RGB. Si hay transparencia, componer sobre fondo blanco.
+            has_alpha = image.mode in ("RGBA", "LA") or (
+                image.mode == "P" and "transparency" in image.info
+            )
+            if has_alpha:
+                rgba = image.convert("RGBA")
+                background = Image.new("RGB", rgba.size, (255, 255, 255))
+                background.paste(rgba, mask=rgba.getchannel("A"))
+                image = background
+            elif image.mode != "RGB":
                 image = image.convert("RGB")
                 
-            # 4. Redimensionar si es muy grande (max 1024px lado mayor)
+            # 4. Redimensionar si es muy grande (max 768px lado mayor)
             # thumbnail mantiene el aspect ratio
-            max_size = (1024, 1024)
+            max_size = (MAX_PROFILE_IMAGE_DIMENSION, MAX_PROFILE_IMAGE_DIMENSION)
             image.thumbnail(max_size, Image.Resampling.LANCZOS)
             
             # 5. Generar nombre y guardar
@@ -148,15 +148,26 @@ class ApiaryService:
             filename = f"{uuid.uuid4()}.jpg"
             output = io.BytesIO()
 
-            # Guardar optimizado (quality=85 es un buen balance peso/calidad)
-            image.save(output, "JPEG", quality=85, optimize=True)
+            image.save(
+                output,
+                "JPEG",
+                quality=PROFILE_IMAGE_JPEG_QUALITY,
+                optimize=True,
+                progressive=True,
+            )
 
             return self.blob_storage.upload_apiary_image(
                 output.getvalue(),
                 filename=filename,
                 content_type="image/jpeg",
             )
-            
+        except HTTPException:
+            raise
+        except (UnidentifiedImageError, OSError, ValueError) as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image file: {str(e)}"
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -337,6 +348,7 @@ class ApiaryService:
     def get_box_stats(self, user_id: int) -> dict:
         """Obtiene estadísticas de alzas cosechadas para un usuario."""
         from sqlalchemy import func
+        self._ensure_current_harvest_year(user_id)
         result = self.db.query(
             func.sum(Apiary.box).label('total_box'),
             func.sum(Apiary.boxMedium).label('total_boxMedium'),
@@ -355,17 +367,10 @@ class ApiaryService:
             "total": total_alzas
         }
     
-    def count_harvesting_apiaries(self, user_id: int) -> int:
-        """Cuenta apiarios que están en modo cosecha (harvesting = True)."""
-        from app.models.settings import Settings
-        return self.db.query(Apiary).join(Settings).filter(
-            Apiary.userId == user_id,
-            Settings.harvesting == True
-        ).count()
-    
     def count_harvested_apiaries(self, user_id: int) -> int:
         """Cuenta apiarios que tienen alzas cosechadas (box > 0 OR boxMedium > 0 OR boxSmall > 0)."""
         from sqlalchemy import or_
+        self._ensure_current_harvest_year(user_id)
         return self.db.query(Apiary).filter(
             Apiary.userId == user_id,
             or_(
@@ -378,6 +383,7 @@ class ApiaryService:
     def count_hives_in_harvested_apiaries(self, user_id: int) -> int:
         """Suma colmenas (hives) solo en apiarios con alzas cosechadas."""
         from sqlalchemy import func, or_
+        self._ensure_current_harvest_year(user_id)
         return self.db.query(func.sum(Apiary.hives)).filter(
             Apiary.userId == user_id,
             or_(
@@ -392,6 +398,9 @@ class ApiaryService:
         if not apiary:
             return {}
 
+        self._ensure_current_harvest_year(apiary.userId)
+        self.db.refresh(apiary)
+
         box = int(apiary.box or 0)
         box_medium = int(apiary.boxMedium or 0)
         box_small = int(apiary.boxSmall or 0)
@@ -403,6 +412,11 @@ class ApiaryService:
             "total": box + box_medium + box_small
         }
 
+    def _ensure_current_harvest_year(self, user_id: int) -> None:
+        from app.services.harvest_season_service import HarvestSeasonService
+
+        HarvestSeasonService(self.db).get_or_create_active_season(user_id)
+
     def _parse_history_int(self, value: Optional[str]) -> int:
         try:
             return int(float(value)) if value not in (None, "") else 0
@@ -411,11 +425,15 @@ class ApiaryService:
 
     def _get_harvested_today_changes(self, user_id: int) -> dict:
         from sqlalchemy import func
+        from app.services.harvest_season_service import HarvestSeasonService
+
+        active_season = HarvestSeasonService(self.db).get_or_create_active_season(user_id)
         fields = ["box", "boxMedium", "boxSmall"]
         history_rows = self.db.query(History).filter(
             History.userId == user_id,
             History.field.in_(fields),
-            func.date(History.changeDate) == func.current_date()
+            func.date(History.changeDate) == func.current_date(),
+            History.changeDate >= active_season.startedAt,
         ).order_by(History.changeDate.desc()).all()
 
         apiary_ids = set()

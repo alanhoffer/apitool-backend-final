@@ -1,5 +1,7 @@
 import pytest
 
+from app.models.user import Role
+
 def test_get_all_news(client, auth_headers):
     """Test getting all news."""
     # Note: This endpoint requires role check, might need adjustment
@@ -98,4 +100,23 @@ def test_delete_news(client, admin_headers):
     # Verify it's deleted
     get_response = client.get(f"/news/{news_id}", headers=admin_headers)
     assert get_response.status_code == 404
+
+def test_create_news_forbidden_after_admin_role_downgrade(client, admin_headers, test_admin, db):
+    """A stale admin token should stop working after the user is downgraded in DB."""
+    test_admin.role = Role.APICULTOR
+    db.commit()
+    db.refresh(test_admin)
+
+    response = client.post(
+        "/news",
+        headers=admin_headers,
+        json={
+            "title": "Blocked News",
+            "content": "This should be forbidden",
+            "image": None
+        }
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not enough permissions"
 

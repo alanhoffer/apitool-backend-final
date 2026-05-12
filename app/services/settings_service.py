@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session
 from app.models.settings import Settings
 from app.schemas.settings import UpdateSettings
 from typing import Optional
-from fastapi import HTTPException, status
 
 class SettingsService:
     def __init__(self, db: Session):
@@ -34,16 +33,3 @@ class SettingsService:
         self.db.commit()
         return True
     
-    def set_harvesting_for_all_apiaries(self, user_id: int, harvesting: bool):
-        result = self.db.query(Settings).filter(
-            Settings.apiaryUserId == user_id
-        ).update({"harvesting": harvesting})
-        
-        self.db.commit()
-        
-        if result == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No settings found for the given user."
-            )
-

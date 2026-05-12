@@ -34,10 +34,10 @@ class Device(Base):
     # Índice único para identificar dispositivos por usuario, nombre y plataforma
     __table_args__ = (
         Index('idx_user_device_platform', 'userId', 'deviceName', 'platform'),
+        Index('idx_devices_last_active_token', 'lastActive', 'expoPushToken'),
     )
     
     user = relationship("User", back_populates="devices")
-
 
 
 

@@ -4,10 +4,23 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user_payload
 from app.services.apiary_service import ApiaryService
+from app.services.apiary_insights_service import ApiaryInsightsService
+from app.services.harvest_season_service import HarvestSeasonService
 from app.services.user_service import UserService
 from app.services.settings_service import SettingsService
 from app.services.subscription_service import SubscriptionService
-from app.schemas.apiary import CreateApiary, UpdateApiary, ApiaryResponse, ApiaryDetail, BoxStats, HarvestedCounts, HarvestedTodayCounts
+from app.schemas.apiary import (
+    ApiaryDetail,
+    ApiaryResponse,
+    BoxStats,
+    CreateApiary,
+    HarvestSeasonApiaryTotalResponse,
+    HarvestSeasonResponse,
+    HarvestedCounts,
+    HarvestedTodayCounts,
+    UpdateApiary,
+)
+from app.schemas.insights import ApiaryInsightsResponse
 from app.schemas.settings import UpdateSettings
 from app.schemas.history import HistoryResponse
 from app.models.apiary import Apiary
@@ -25,6 +38,31 @@ router = APIRouter(prefix="/apiarys", tags=["apiarys"])
 UPLOAD_DIR = get_upload_dir()
 UPLOAD_DIR.mkdir(exist_ok=True)
 IMAGE_REF_RE = re.compile(r"^(?!/)(?!.*//)(?!.*\.\.)[A-Za-z0-9/_-]{1,255}\.(jpg|jpeg|png|gif|webp)$")
+
+@router.get("/harvest/seasons", response_model=List[HarvestSeasonResponse])
+async def get_harvest_seasons(
+    payload: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+    user_id = int(payload.get("sub"))
+    return HarvestSeasonService(db).list_seasons(user_id)
+
+@router.get("/harvest/seasons/active", response_model=HarvestSeasonResponse)
+async def get_active_harvest_season(
+    payload: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+    user_id = int(payload.get("sub"))
+    return HarvestSeasonService(db).get_active_summary(user_id)
+
+@router.get("/harvest/seasons/{season_id}/apiaries", response_model=List[HarvestSeasonApiaryTotalResponse])
+async def get_harvest_season_apiary_totals(
+    season_id: int,
+    payload: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+    user_id = int(payload.get("sub"))
+    return HarvestSeasonService(db).get_season_apiary_totals(user_id, season_id)
 
 @router.get("/{id}", response_model=ApiaryDetail)
 async def get_apiary(
@@ -54,6 +92,21 @@ async def get_apiary_harvested_totals(
     verify_apiary_ownership(apiary, user_id)
 
     return apiary_service.get_harvested_totals_by_apiary(id)
+
+
+@router.get("/{id}/insights", response_model=ApiaryInsightsResponse)
+async def get_apiary_insights(
+    id: int,
+    payload: dict = Depends(get_current_user_payload),
+    db: Session = Depends(get_db)
+):
+    apiary_service = ApiaryService(db)
+    apiary = apiary_service.get_apiary(id)
+    user_id = int(payload.get("sub"))
+
+    verify_apiary_ownership(apiary, user_id)
+
+    return await ApiaryInsightsService(db).get_apiary_insights(apiary)
 
 @router.get("/all/count")
 async def get_apiary_and_hive_counts(
@@ -92,21 +145,6 @@ async def get_harvested_stats(
     user_id = int(payload.get("sub"))
     
     return apiary_service.get_box_stats(user_id)
-
-@router.get("/harvesting/count")
-async def get_harvesting_count(
-    payload: dict = Depends(get_current_user_payload),
-    db: Session = Depends(get_db)
-):
-    """Obtiene la cantidad de apiarios en cosecha (harvesting = True)."""
-    apiary_service = ApiaryService(db)
-    user_id = int(payload.get("sub"))
-    
-    count = apiary_service.count_harvesting_apiaries(user_id)
-    
-    return {
-        "harvestingCount": count
-    }
 
 @router.get("/harvested/count")
 async def get_harvested_count(
@@ -291,17 +329,15 @@ async def get_file(id: str):
             detail="Invalid file reference"
         )
 
-    blob_url = BlobStorageService().resolve_public_url(id)
+    blob_storage = BlobStorageService()
+    blob_url = blob_storage.resolve_public_url(id)
     if blob_url:
         return RedirectResponse(blob_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
-    if is_blob_path(id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found"
-        )
-
-    file_path = (UPLOAD_DIR / id).resolve()
+    # Legacy Vercel Blob references were stored as "apiarys/<filename>".
+    # When running with local storage, serve the local basename if present.
+    local_name = Path(id).name if is_blob_path(id) else id
+    file_path = (UPLOAD_DIR / local_name).resolve()
     upload_root = UPLOAD_DIR.resolve()
     if upload_root not in file_path.parents:
         raise HTTPException(
@@ -316,18 +352,23 @@ async def get_file(id: str):
         )
     
     # Detectar el tipo MIME según la extensión
-    if id.endswith('.png'):
+    lower_name = local_name.lower()
+    if lower_name.endswith('.png'):
         media_type = "image/png"
-    elif id.endswith('.jpg') or id.endswith('.jpeg'):
+    elif lower_name.endswith('.jpg') or lower_name.endswith('.jpeg'):
         media_type = "image/jpeg"
-    elif id.endswith('.gif'):
+    elif lower_name.endswith('.gif'):
         media_type = "image/gif"
-    elif id.endswith('.webp'):
+    elif lower_name.endswith('.webp'):
         media_type = "image/webp"
     else:
         media_type = "image/jpeg"  # Por defecto
     
-    return FileResponse(file_path, media_type=media_type)
+    return FileResponse(
+        file_path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @router.get("", response_model=List[ApiaryResponse])
 async def get_apiarys(
@@ -368,12 +409,6 @@ async def update_apiary_settings(
     db: Session = Depends(get_db)
 ):
     user_id = int(payload.get("sub"))
-    if settings_data.apiaryUserId != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This settings is not yours"
-        )
-    
     settings_service = SettingsService(db)
     found_settings = settings_service.get_settings(id)
     
@@ -382,25 +417,26 @@ async def update_apiary_settings(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Settings not exists"
         )
-    
-    if settings_data.apiaryId != found_settings.apiaryId:
+
+    owned_apiary = db.query(Apiary).filter(
+        Apiary.id == found_settings.apiaryId,
+        Apiary.userId == user_id,
+    ).first()
+
+    if not owned_apiary or found_settings.apiaryUserId != user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="This settings is not yours"
         )
+
+    if (
+        settings_data.apiaryId != found_settings.apiaryId
+        or settings_data.apiaryUserId != found_settings.apiaryUserId
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Settings ownership fields cannot be changed"
+        )
     
     return settings_service.update_settings(id, settings_data)
 
-@router.put("/harvest/all")
-async def set_harvesting_for_all(
-    body: dict,
-    payload: dict = Depends(get_current_user_payload),
-    db: Session = Depends(get_db)
-):
-    user_id = int(payload.get("sub"))
-    harvesting = body.get("harvesting", False)
-    
-    settings_service = SettingsService(db)
-    settings_service.set_harvesting_for_all_apiaries(user_id, harvesting)
-    
-    return {"message": "Harvesting status updated for all apiaries"}

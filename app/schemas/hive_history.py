@@ -13,6 +13,7 @@ class HiveHistoryResponse(BaseModel):
     changes: Dict[str, Any]
     comment: Optional[str]
     date: datetime
+    createdByName: Optional[str] = None
 
     class Config:
         from_attributes = True

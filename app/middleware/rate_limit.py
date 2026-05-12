@@ -2,6 +2,7 @@
 Middleware de rate limiting.
 Protege la API contra abuso y ataques de fuerza bruta.
 """
+import ipaddress
 import time
 from collections import defaultdict
 from typing import Callable
@@ -34,6 +35,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/auth/forgot-password": (settings.rate_limit_forgot_password_requests, auth_window),
             "/auth/reset-password": (settings.rate_limit_forgot_password_requests, auth_window),
             "/auth": (settings.rate_limit_auth_requests, auth_window),
+            "/users/account-deletion": (settings.rate_limit_login_requests, auth_window),
             "default": (settings.rate_limit_default_requests, default_window),
         }
 
@@ -51,20 +53,57 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return self.limits["default"]
 
+    def _ip_in_trusted_proxies(self, candidate: str) -> bool:
+        try:
+            candidate_ip = ipaddress.ip_address(candidate)
+        except ValueError:
+            return False
+
+        if candidate_ip.is_loopback:
+            return True
+
+        for proxy in settings.rate_limit_trusted_proxies_list:
+            try:
+                if candidate_ip in ipaddress.ip_network(proxy, strict=False):
+                    return True
+            except ValueError:
+                if candidate == proxy:
+                    return True
+
+        return False
+
+    def _get_forwarded_client_ip(self, request: Request) -> str | None:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            first_hop = forwarded_for.split(",")[0].strip()
+            try:
+                return str(ipaddress.ip_address(first_hop))
+            except ValueError:
+                pass
+
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            real_ip = real_ip.strip()
+            try:
+                return str(ipaddress.ip_address(real_ip))
+            except ValueError:
+                pass
+
+        return None
+
     def _get_client_ip(self, request: Request) -> str:
-        if settings.rate_limit_trust_proxy_headers:
-            forwarded_for = request.headers.get("x-forwarded-for")
-            if forwarded_for:
-                first_hop = forwarded_for.split(",")[0].strip()
-                if first_hop:
-                    return first_hop
+        client_host = request.client.host if request.client and request.client.host else None
+        if (
+            settings.rate_limit_trust_proxy_headers
+            and client_host
+            and self._ip_in_trusted_proxies(client_host)
+        ):
+            forwarded_ip = self._get_forwarded_client_ip(request)
+            if forwarded_ip:
+                return forwarded_ip
 
-            real_ip = request.headers.get("x-real-ip")
-            if real_ip:
-                return real_ip.strip()
-
-        if request.client and request.client.host:
-            return request.client.host
+        if client_host:
+            return client_host
 
         return "unknown"
 

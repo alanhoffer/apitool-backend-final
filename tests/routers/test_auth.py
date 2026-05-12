@@ -1,5 +1,8 @@
 import pytest
 
+from app.models.user import Role
+from app.services.auth_service import AuthService
+
 def test_register_success(client):
     """Test successful user registration."""
     response = client.post(
@@ -78,6 +81,30 @@ def test_profile(client, auth_headers):
     data = response.json()
     assert "sub" in data
     assert "username" in data
+    assert "role" in data
+
+def test_profile_revalidates_current_role_from_db(client, auth_headers, test_user, db):
+    """Profile should reflect the latest role stored in DB."""
+    test_user.role = Role.APICULTOR_PREMIUM
+    db.commit()
+    db.refresh(test_user)
+
+    response = client.get("/auth/profile", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["role"] == Role.APICULTOR_PREMIUM.value
+
+def test_profile_rejects_old_token_after_password_change(client, auth_headers, test_user, db):
+    """Changing the password should invalidate existing JWTs with password fingerprint."""
+    auth_service = AuthService(db)
+    test_user.password = auth_service.hash_password("newpassword123")
+    db.commit()
+    db.refresh(test_user)
+
+    response = client.get("/auth/profile", headers=auth_headers)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Could not validate credentials"
 
 def test_profile_unauthorized(client):
     """Test getting profile without authentication."""

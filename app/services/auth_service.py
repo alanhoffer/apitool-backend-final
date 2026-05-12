@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.constants import JWT_SECRET, JWT_ALGORITHM, BCRYPT_SALT_ROUNDS, JWT_EXPIRATION_DAYS
+from app.dependencies import build_password_fingerprint
 from app.schemas.auth import AuthData, ForgotPasswordRequest, ResetPasswordRequest
 from app.schemas.user import CreateUser, LoginUser
 from app.services.user_service import UserService
@@ -58,6 +59,7 @@ class AuthService:
             "username": user.email,
             "sub": str(user.id),
             "role": user.role.value,
+            "pwd_fgp": build_password_fingerprint(user.password),
         }
 
         return AuthData(
@@ -94,6 +96,7 @@ class AuthService:
             "username": user.email,
             "sub": str(user.id),
             "role": user.role.value,
+            "pwd_fgp": build_password_fingerprint(user.password),
         }
 
         return AuthData(

@@ -15,7 +15,6 @@
 
 #### Múltiples endpoints de "count"
 - `/all/count` - apiarios y colmenas totales
-- `/harvesting/count` - apiarios en cosecha
 - `/harvested/count` - apiarios cosechados (retorna solo número)
 - `/harvested/counts` - apiarios cosechados + colmenas
 
@@ -149,7 +148,6 @@ async def get_file(id: str):
 - ⚠️ `GET /apiarys/all/count` - Total apiarios y colmenas
 - ⚠️ `GET /apiarys/stats/boxes` - Alzas cosechadas
 - ⚠️ `GET /apiarys/harvested/stats` - **DUPLICADO** de stats/boxes
-- ⚠️ `GET /apiarys/harvesting/count` - Apiarios en cosecha
 - ⚠️ `GET /apiarys/harvested/count` - Apiarios cosechados (solo número)
 - ⚠️ `GET /apiarys/harvested/counts` - Apiarios cosechados + colmenas
 - ⚠️ `GET /apiarys/harvested/today/counts` - Cosechados hoy (apiarios + colmenas)
@@ -160,7 +158,6 @@ async def get_file(id: str):
 - ✅ `GET /apiarys/history/{id}` - Historial (sin paginación)
 - ⚠️ `GET /apiarys/profile/image/{id}` - **SIN AUTENTICACIÓN**
 - ⚠️ `PUT /apiarys/settings/{id}` - **RUTA CONFUSA**
-- ⚠️ `PUT /apiarys/harvest/all` - Activar/desactivar cosecha en todos
 
 ---
 
@@ -193,8 +190,6 @@ GET    /apiarys/stats/summary      # Resumen rápido
 GET    /apiarys/stats/harvested    # Solo cosechados
 GET    /apiarys/stats/harvested/today  # Cosechados hoy
 
-# Acciones
-PUT    /apiarys/harvest/all        # Activar/desactivar cosecha en todos
 ```
 
 ---
@@ -219,9 +214,6 @@ Response: {
     "apiaries": 2,
     "hives": 30,
     "boxes": {...}
-  },
-  "harvesting": {
-    "count": 3
   }
 }
 ```

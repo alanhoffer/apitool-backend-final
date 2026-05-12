@@ -1,4 +1,35 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/internal/cron/apiary-maintenance",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/internal/cron/apiary-alerts",
+      "schedule": "10 4 * * *"
+    },
+    {
+      "path": "/internal/cron/task-reminders",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/internal/cron/subscription-reminders",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/internal/cron/subscription-reconciliation",
+      "schedule": "15 13 * * *"
+    },
+    {
+      "path": "/internal/cron/push-token-cleanup",
+      "schedule": "0 7 * * 0"
+    },
+    {
+      "path": "/internal/cron/weekly-digest",
+      "schedule": "30 12 * * 1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

@@ -234,7 +234,6 @@ def main():
     print("11. Probando endpoints de estadísticas...")
     stats_endpoints = [
         "/apiarys/harvested/stats",
-        "/apiarys/harvesting/count",
         "/apiarys/harvested/count",
         "/apiarys/harvested/counts",
         "/apiarys/harvested/today/counts",

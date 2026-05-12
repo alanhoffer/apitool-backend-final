@@ -10,7 +10,8 @@ class HistoryResponse(BaseModel):
     previousValue: Optional[str]
     newValue: Optional[str]
     changeDate: datetime
-    
+    userName: Optional[str] = None
+
     class Config:
         from_attributes = True
 

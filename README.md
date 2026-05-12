@@ -97,6 +97,7 @@ Variables minimas recomendadas en Vercel:
 - `WEATHER_API_KEY` si usas `/weather`
 - `OPENAI_API_KEY` si usas audio/IA
 - `ENABLE_SCHEDULER=false`
+- `CRON_SECRET`
 - `BLOB_READ_WRITE_TOKEN`
 
 Para imagenes de apiarios con Vercel Blob:
@@ -111,11 +112,55 @@ python scripts/migrate_apiary_images_to_blob.py
 ```
 
 Las imagenes nuevas se guardan en Vercel Blob bajo `apiarys/...` y el endpoint legado `/apiarys/profile/image/...` redirige a la URL publica del blob.
+La API ahora tambien devuelve `imageUrl` cuando ya conoce una URL publica, para que mobile/web eviten pasar por ese endpoint legado y no gasten invocaciones innecesarias.
 
 Importante:
 
 - En Vercel no conviene correr el scheduler interno de APScheduler; por eso debe quedar en `false`.
 - `uploads/` no es persistente en Vercel. Si no hay `BLOB_READ_WRITE_TOKEN`, la API cae en almacenamiento local solo para desarrollo/testing.
+- Los jobs HTTP se configuran desde [vercel.json](/C:/Users/anxio/OneDrive/Escritorio/APICULTURA/apitool-fastapi/vercel.json) y llaman a `GET /internal/cron/<job-name>`.
+- Configura `CRON_SECRET` en el proyecto de Vercel. Vercel enviara `Authorization: Bearer <CRON_SECRET>` automaticamente al disparar el cron.
+- Los horarios de `vercel.json` estan expresados en UTC. Si queres alinearlos con Paraguay, ajustalos cuando cambie tu ventana operativa.
+
+## Deploy en OVH / VPS
+
+Tambien deje preparada una ruta de migracion a VPS en [deploy/ovh/README.md](/C:/Users/anxio/OneDrive/Escritorio/APICULTURA/apitool-fastapi/deploy/ovh/README.md).
+
+Incluye:
+
+- `docker-compose.prod.yml`
+- `.env.vps.example`
+- configuracion base de `Nginx`
+- backup rapido de Postgres
+
+En VPS ya no hace falta depender de `vercel.json` para jobs: el scheduler interno vuelve a correr con `ENABLE_SCHEDULER=true`.
+
+Antes de un corte a VPS o una base productiva vieja conviene aplicar tambien [migrations/add_performance_indexes.sql](/C:/Users/anxio/OneDrive/Escritorio/APICULTURA/apitool-fastapi/migrations/add_performance_indexes.sql). Igual deje los mismos indices en `ensure_runtime_schema_compatibility()` para que una base existente los cree de forma idempotente en el arranque.
+
+## Jobs automaticos
+
+Jobs productivos disponibles:
+
+- `GET /internal/cron/apiary-maintenance`: descuenta alimento y baja un dia a los tratamientos automáticos.
+- `GET /internal/cron/apiary-alerts`: crea alertas para apiarios con mas de 30 dias sin actividad.
+- `GET /internal/cron/task-reminders`: genera recordatorios para tareas vencidas o que vencen dentro de 24 horas.
+- `GET /internal/cron/subscription-reminders`: avisa cuando una suscripcion premium vence en 7, 3 o 1 dia.
+- `GET /internal/cron/subscription-reconciliation`: marca como expiradas las suscripciones activas cuyo `expiresAt` ya paso.
+- `GET /internal/cron/push-token-cleanup`: limpia tokens push invalidos y borra dispositivos viejos sin token.
+- `GET /internal/cron/weekly-digest`: crea un resumen semanal con tareas pendientes, vencidas y apiarios desatendidos.
+- `GET /internal/cron/daily`: endpoint manual de conveniencia que ejecuta el bloque diario principal en una sola llamada.
+
+Plan sugerido en Vercel:
+
+- `apiary-maintenance`: diario
+- `apiary-alerts`: diario, unos minutos despues
+- `task-reminders`: diario, por la mañana
+- `subscription-reminders`: diario
+- `subscription-reconciliation`: diario
+- `push-token-cleanup`: semanal
+- `weekly-digest`: semanal
+
+Los jobs nuevos estan pensados para que la campana de notificaciones no dependa solo del abandono de apiarios.
 
 ## Endpoints principales
 
@@ -131,6 +176,18 @@ Importante:
 
 - La autenticacion usa JWT
 - Los tokens expiran despues de 365 dias
-- Las tareas cron se ejecutan diariamente a medianoche
+- Existen jobs HTTP para Vercel y jobs locales equivalentes via APScheduler cuando `ENABLE_SCHEDULER=true`
 - Los archivos se suben a `uploads/`
 - Los tests usan SQLite en memoria
+
+## Recomendaciones estacionales
+
+El endpoint `GET /recommendations` ya devuelve recomendaciones segun la estacion actual del hemisferio sur por defecto. La logica vive en [app/services/recommendations_service.py](/C:/Users/anxio/OneDrive/Escritorio/APICULTURA/apitool-fastapi/app/services/recommendations_service.py).
+
+Para llevarlo a nivel apiario se puede extender sin cambiar de arquitectura:
+
+- inferir hemisferio por latitud del apiario
+- mezclar estacion + clima actual + estado del apiario
+- priorizar tips por contexto real, por ejemplo alimento bajo, tratamientos proximos a vencer o falta de visitas
+
+La base para hacerlo ya existe; faltaria agregar un endpoint especifico por apiario y reglas de priorizacion.

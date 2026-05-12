@@ -49,7 +49,6 @@ def check_user_stats(email: str):
         
         # Obtener todos los apiarios para calcular alzas cosechadas
         from app.models.apiary import Apiary
-        from sqlalchemy import func
         apiaries = db.query(Apiary).filter(Apiary.userId == user.id).all()
         
         # Calcular alzas cosechadas
@@ -58,19 +57,11 @@ def check_user_stats(email: str):
         total_boxSmall = sum(int(apiary.boxSmall or 0) for apiary in apiaries)
         total_alzas = total_box + total_boxMedium + total_boxSmall
         
-        # Contar apiarios en modo harvesting
-        from app.models.settings import Settings
-        harvesting_count = db.query(Settings).join(Apiary).filter(
-            Apiary.userId == user.id,
-            Settings.harvesting == True
-        ).count()
-        
         print(f"{'='*70}")
         print(f"ESTADISTICAS DE APIARIOS")
         print(f"{'='*70}")
         print(f"  Total de apiarios: {apiary_count}")
         print(f"  Total de colmenas: {hive_count}")
-        print(f"  Apiarios en cosecha (harvesting): {harvesting_count}")
         print(f"{'='*70}\n")
         
         print(f"{'='*70}")
@@ -105,4 +96,3 @@ def check_user_stats(email: str):
 
 if __name__ == "__main__":
     check_user_stats("cristian@hoffer.com")
-

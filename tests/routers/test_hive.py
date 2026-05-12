@@ -18,6 +18,8 @@ def test_create_hive(client, auth_headers, test_apiary):
     assert data["name"] == "H-001"
     assert data["apiaryId"] == test_apiary.id
     assert data["userId"] == test_apiary.userId
+    assert "healthSummary" in data
+    assert data["healthSummary"]["score"] >= 0
 
 
 def test_get_hives_by_apiary(client, auth_headers, test_apiary):

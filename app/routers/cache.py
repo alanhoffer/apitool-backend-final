@@ -1,8 +1,8 @@
 """
 Endpoints para gestión y estadísticas del caché.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.dependencies import get_current_user_payload
+from fastapi import APIRouter, Depends
+from app.dependencies import require_role
 from app.utils.cache import cache
 from typing import Dict, Any
 
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/cache", tags=["cache"])
 
 @router.get("/stats")
 async def get_cache_stats(
-    payload: dict = Depends(get_current_user_payload)
+    payload: dict = Depends(require_role("admin"))
 ) -> Dict[str, Any]:
     """
     Obtiene estadísticas del caché.
@@ -24,7 +24,7 @@ async def get_cache_stats(
 
 @router.delete("")
 async def clear_cache(
-    payload: dict = Depends(get_current_user_payload)
+    payload: dict = Depends(require_role("admin"))
 ) -> Dict[str, str]:
     """
     Limpia todo el caché.
@@ -37,7 +37,7 @@ async def clear_cache(
 
 @router.post("/cleanup")
 async def cleanup_cache(
-    payload: dict = Depends(get_current_user_payload)
+    payload: dict = Depends(require_role("admin"))
 ) -> Dict[str, Any]:
     """
     Limpia entradas expiradas del caché.

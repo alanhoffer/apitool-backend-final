@@ -74,27 +74,7 @@ Asegurarse de sanear el input del campo `tasks` si se renderiza en algún panel 
 
 ---
 
-### 4.2. Cantidad de Apiarios en Cosecha
-
-**Endpoint:** `GET /apiarys/harvesting/count`
-
-**Descripción:** Retorna la cantidad de apiarios que están actualmente en modo cosecha (con `harvesting: true`).
-
-**Respuesta Esperada:**
-```json
-{
-  "harvestingCount": 12
-}
-```
-
-**Estructura de la Respuesta:**
-- `harvestingCount` (number, requerido): Cantidad de apiarios con `settings.harvesting === true`
-
-**Nota:** Si el endpoint no está disponible (404), el frontend calculará este valor desde los datos individuales de cada apiario como fallback.
-
----
-
-### 4.3. Cantidad de Apiarios con Alzas Cosechadas
+### 4.2. Cantidad de Apiarios con Alzas Cosechadas
 
 **Endpoint:** `GET /apiarys/harvested/count`
 
@@ -131,7 +111,7 @@ El frontend acepta cualquiera de estas tres estructuras:
 
 ---
 
-### 4.4. Totales de Cosecha por Apiario
+### 4.3. Totales de Cosecha por Apiario
 
 **Endpoint:** `GET /apiarys/:id/harvested`
 
@@ -159,7 +139,7 @@ El frontend acepta cualquiera de estas tres estructuras:
 
 ---
 
-### 4.5. Conteos de Apiarios y Colmenas Cosechadas (General)
+### 4.4. Conteos de Apiarios y Colmenas Cosechadas (General)
 
 **Endpoint:** `GET /apiarys/harvested/counts`
 
@@ -181,7 +161,7 @@ El frontend acepta cualquiera de estas tres estructuras:
 
 ---
 
-### 4.6. Conteos de Apiarios y Colmenas Cosechadas Hoy
+### 4.5. Conteos de Apiarios y Colmenas Cosechadas Hoy
 
 **Endpoint:** `GET /apiarys/harvested/today/counts`
 
@@ -203,7 +183,7 @@ El frontend acepta cualquiera de estas tres estructuras:
 
 ---
 
-### 4.7. Alzas Cosechadas Hoy
+### 4.6. Alzas Cosechadas Hoy
 
 **Endpoint:** `GET /apiarys/harvested/today/boxes`
 

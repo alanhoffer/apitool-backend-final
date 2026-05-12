@@ -56,10 +56,19 @@ class HiveHistoryService:
         return entry
 
     def get_hive_history(self, hive_id: int, user_id: int) -> List[HiveHistory]:
-        return self.db.query(HiveHistory).filter(
-            HiveHistory.hiveId == hive_id,
-            HiveHistory.userId == user_id,
-        ).order_by(HiveHistory.date.desc(), HiveHistory.id.desc()).all()
+        from app.models.user import User
+        results = (
+            self.db.query(HiveHistory, User.name, User.surname)
+            .join(User, HiveHistory.createdBy == User.id, isouter=True)
+            .filter(HiveHistory.hiveId == hive_id, HiveHistory.userId == user_id)
+            .order_by(HiveHistory.date.desc(), HiveHistory.id.desc())
+            .all()
+        )
+        history_list = []
+        for history, user_name, user_surname in results:
+            history.createdByName = f"{user_name} {user_surname}".strip() if user_name else None
+            history_list.append(history)
+        return history_list
 
     def build_empty_hive(self, hive: Any) -> Any:
         payload = {field: None for field in self.tracked_fields}

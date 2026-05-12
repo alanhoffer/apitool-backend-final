@@ -5,6 +5,10 @@ from app.database import Base
 
 class Apiary(Base):
     __tablename__ = "apiary"
+    __table_args__ = (
+        Index("idx_apiary_user_updated_at", "userId", "updatedAt"),
+        Index("idx_apiary_user_management_type", "userId", "managementType"),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Boolean, ForeignKey, Text
+from sqlalchemy import Column, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -20,7 +20,6 @@ class Settings(Base):
     tFence = Column(Boolean, default=True)
     tComment = Column(Boolean, default=True)
     transhumance = Column(Boolean, default=True)
-    harvesting = Column(Boolean, default=False)
     queenStatus = Column(Boolean, default=False)
     population = Column(Boolean, default=False)
     broodFrames = Column(Boolean, default=False)
@@ -31,6 +30,6 @@ class Settings(Base):
     swarming = Column(Boolean, default=False)
     disease = Column(Boolean, default=False)
     production = Column(Boolean, default=False)
-    tasks = Column(Text, nullable=True)
+    tasks = Column(Boolean, default=False)
     
     apiary = relationship("Apiary", back_populates="settings")

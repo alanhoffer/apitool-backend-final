@@ -6,6 +6,7 @@ import sys
 import json
 from datetime import datetime
 from typing import Any, Dict
+from contextvars import ContextVar
 
 class StructuredFormatter(logging.Formatter):
     """Formatter que genera logs en formato JSON estructurado."""
@@ -45,6 +46,18 @@ class StructuredFormatter(logging.Formatter):
         
         return json.dumps(log_data, ensure_ascii=False)
 
+_request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
+_factory_installed = False
+
+def set_request_id(request_id: str | None):
+    return _request_id_ctx.set(request_id)
+
+def reset_request_id(token) -> None:
+    _request_id_ctx.reset(token)
+
+def get_request_id() -> str | None:
+    return _request_id_ctx.get()
+
 def setup_logging(log_level: str = "INFO", use_json: bool = False) -> None:
     """
     Configura el logging de la aplicación.
@@ -73,6 +86,19 @@ def setup_logging(log_level: str = "INFO", use_json: bool = False) -> None:
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.addHandler(handler)
+
+    # Instalar LogRecordFactory una sola vez para request_id
+    global _factory_installed
+    if not _factory_installed:
+        old_factory = logging.getLogRecordFactory()
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            request_id = get_request_id()
+            if request_id:
+                record.request_id = request_id
+            return record
+        logging.setLogRecordFactory(record_factory)
+        _factory_installed = True
     
     # Configurar loggers específicos
     logging.getLogger("uvicorn").setLevel(level)

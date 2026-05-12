@@ -4,7 +4,15 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.services.user_service import UserService
 from app.services.auth_service import AuthService
-from app.schemas.user import UserResponse, PushTokenUpdate, UpdateProfileRequest, ChangePasswordRequest
+from app.services.dashboard_service import DashboardService
+from app.schemas.user import (
+    ChangePasswordRequest,
+    DashboardSummaryResponse,
+    PushTokenUpdate,
+    StatisticsOverviewResponse,
+    UpdateProfileRequest,
+    UserResponse,
+)
 from app.schemas.device import CreateDevice, UpdateDevice, DeviceResponse
 from app.models.user import User
 from app.models.device import Device
@@ -57,6 +65,30 @@ async def get_user(
         )
     
     return found_user
+
+
+@router.get("/dashboard-summary", response_model=DashboardSummaryResponse)
+async def get_dashboard_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return DashboardService(db).get_dashboard_summary(current_user)
+
+
+@router.get("/statistics-overview", response_model=StatisticsOverviewResponse)
+async def get_statistics_overview(
+    period: str = "month",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    normalized_period = (period or "month").strip().lower()
+    if normalized_period not in {"day", "week", "month", "year"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid period. Use day, week, month or year.",
+        )
+
+    return DashboardService(db).get_statistics_overview(current_user.id, normalized_period)
 
 @router.post("/devices", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED)
 async def register_device(
@@ -161,4 +193,3 @@ async def change_password(
         )
     
     return {"message": "Contraseña actualizada exitosamente"}
-
