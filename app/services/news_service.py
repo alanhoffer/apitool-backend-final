@@ -17,6 +17,8 @@ class NewsService:
         new_news = News(
             title=news_data.title,
             content=news_data.content,
+            category=news_data.category,
+            source=news_data.source,
             image=news_data.image,
             user_id=user_id
         )

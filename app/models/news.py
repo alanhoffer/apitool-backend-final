@@ -9,6 +9,8 @@ class News(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(100), nullable=False)
     content = Column(String(1000), nullable=False)
+    category = Column(String(50), nullable=True)
+    source = Column(String(100), nullable=True)
     date = Column(DateTime, server_default=func.current_timestamp(), nullable=False)
     image = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
