@@ -91,6 +91,18 @@ def ensure_runtime_schema_compatibility(bind=None) -> None:
                 )
             )
 
+        if inspector.has_table("user"):
+            user_columns = {column["name"] for column in inspector.get_columns("user")}
+            if "is_active" not in user_columns:
+                connection.execute(text('ALTER TABLE "user" ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE'))
+
+        if inspector.has_table("news"):
+            news_columns = {column["name"] for column in inspector.get_columns("news")}
+            if "category" not in news_columns:
+                connection.execute(text('ALTER TABLE news ADD COLUMN category VARCHAR(50)'))
+            if "source" not in news_columns:
+                connection.execute(text('ALTER TABLE news ADD COLUMN source VARCHAR(100)'))
+
         if inspector.has_table("devices"):
             connection.execute(
                 text(

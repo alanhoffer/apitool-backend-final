@@ -91,6 +91,7 @@ class AdminUserResponse(BaseModel):
     surname: str
     email: str
     role: str
+    active: bool
     apiaryCount: int
     hiveCount: int
 
@@ -102,6 +103,20 @@ class UpdateRoleRequest(BaseModel):
     role: str
 
 
+class UpdateActiveRequest(BaseModel):
+    active: bool
+
+
+def _user_to_admin_response(u: User, service: "ApiaryService") -> "AdminUserResponse":
+    role = u.role.value if hasattr(u.role, "value") else str(u.role)
+    return AdminUserResponse(
+        id=u.id, name=u.name, surname=u.surname, email=u.email, role=role,
+        active=bool(getattr(u, "is_active", True)),
+        apiaryCount=service.count_apiaries_by_user_id(u.id),
+        hiveCount=int(service.count_hives_by_user_id(u.id)),
+    )
+
+
 @router.get("/users", response_model=List[AdminUserResponse])
 async def list_users(
     payload: dict = Depends(require_role("admin")),
@@ -109,15 +124,7 @@ async def list_users(
 ):
     users = db.query(User).order_by(User.createdAt.desc()).all()
     service = ApiaryService(db)
-    result = []
-    for u in users:
-        role = u.role.value if hasattr(u.role, "value") else str(u.role)
-        result.append(AdminUserResponse(
-            id=u.id, name=u.name, surname=u.surname, email=u.email, role=role,
-            apiaryCount=service.count_apiaries_by_user_id(u.id),
-            hiveCount=int(service.count_hives_by_user_id(u.id)),
-        ))
-    return result
+    return [_user_to_admin_response(u, service) for u in users]
 
 
 @router.get("/users/{user_id}/apiaries")
@@ -148,13 +155,26 @@ async def update_user_role(
     user.role = Role(body.role)
     db.commit()
     db.refresh(user)
-    service = ApiaryService(db)
-    role = user.role.value if hasattr(user.role, "value") else str(user.role)
-    return AdminUserResponse(
-        id=user.id, name=user.name, surname=user.surname, email=user.email, role=role,
-        apiaryCount=service.count_apiaries_by_user_id(user.id),
-        hiveCount=int(service.count_hives_by_user_id(user.id)),
-    )
+    return _user_to_admin_response(user, ApiaryService(db))
+
+
+@router.put("/users/{user_id}/active", response_model=AdminUserResponse)
+async def update_user_active(
+    user_id: int,
+    body: UpdateActiveRequest,
+    payload: dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    requester_id = int(payload.get("sub"))
+    if requester_id == user_id and not body.active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No podés desactivar tu propia cuenta")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.is_active = bool(body.active)
+    db.commit()
+    db.refresh(user)
+    return _user_to_admin_response(user, ApiaryService(db))
 
 
 @router.delete("/users/{user_id}")

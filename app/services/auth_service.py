@@ -55,6 +55,12 @@ class AuthService:
                 detail="Invalid credentials",
             )
 
+        if getattr(user, "is_active", True) is False:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tu cuenta está desactivada. Contactá al administrador.",
+            )
+
         payload = {
             "username": user.email,
             "sub": str(user.id),

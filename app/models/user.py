@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, TypeDecorator
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, TypeDecorator
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -55,7 +55,8 @@ class User(Base):
     authStrategy = Column(String, nullable=True)
     role = Column(RoleType(), default=Role.APICULTOR)
     expoPushToken = Column(String, nullable=True)
-    
+    is_active = Column(Boolean, default=True, nullable=False, server_default="true")
+
     apiarys = relationship("Apiary", back_populates="user", cascade="all, delete-orphan")
     news = relationship("News", back_populates="user")
     devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
