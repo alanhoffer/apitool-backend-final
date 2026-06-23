@@ -10,8 +10,10 @@ from .hive_history import HiveHistory
 from .task import Task
 from .notification import Notification
 from .harvest_season import HarvestSeason, HarvestSeasonApiaryTotal
+from .guide import Guide
 
 __all__ = [
+    "Guide",
     "User",
     "Apiary",
     "Settings",

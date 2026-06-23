@@ -148,6 +148,10 @@ from app.routers.admin import router as admin_router
 
 app.include_router(admin_router)
 
+from app.routers.guide import router as guide_router
+
+app.include_router(guide_router)
+
 
 @app.get("/")
 async def root():
