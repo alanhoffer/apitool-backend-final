@@ -3,13 +3,86 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
 
+from sqlalchemy import func
+
 from app.database import get_db
 from app.dependencies import require_role
 from app.models.user import User, Role
 from app.models.apiary import Apiary
+from app.models.hive import Hive
+from app.models.news import News
+from app.models.task import Task
+from app.models.notification import Notification
 from app.services.apiary_service import ApiaryService
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class AdminStatsResponse(BaseModel):
+    users: int
+    apiaries: int
+    hives: int
+    news: int
+    guides: int
+    tasks: int
+
+
+class BroadcastRequest(BaseModel):
+    title: str
+    message: str
+    type: Optional[str] = "INFO"
+
+
+@router.get("/stats", response_model=AdminStatsResponse)
+async def admin_stats(
+    payload: dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    try:
+        from app.models.guide import Guide
+        guides = db.query(Guide).count()
+    except Exception:
+        guides = 0
+    hives = db.query(func.coalesce(func.sum(Apiary.hives), 0)).scalar() or 0
+    return AdminStatsResponse(
+        users=db.query(User).count(),
+        apiaries=db.query(Apiary).count(),
+        hives=int(hives),
+        news=db.query(News).count(),
+        guides=guides,
+        tasks=db.query(Task).count(),
+    )
+
+
+@router.post("/broadcast")
+async def admin_broadcast(
+    body: BroadcastRequest,
+    payload: dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    title = (body.title or "").strip()
+    message = (body.message or "").strip()
+    if not title or not message:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Título y mensaje son obligatorios")
+    ntype = body.type if body.type in {"INFO", "ALERT", "WARNING"} else "INFO"
+
+    users = db.query(User).all()
+    for u in users:
+        db.add(Notification(userId=u.id, title=title, message=message, type=ntype))
+    db.commit()
+
+    # Push best-effort (no rompe si falla)
+    service = NotificationService(db)
+    pushed = 0
+    for u in users:
+        try:
+            service.send_push_notification(u.id, title, message, {"broadcast": True})
+            pushed += 1
+        except Exception:
+            pass
+
+    return {"message": "Aviso enviado", "recipients": len(users), "pushed": pushed}
 
 
 class AdminUserResponse(BaseModel):
